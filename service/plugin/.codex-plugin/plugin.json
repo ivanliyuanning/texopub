@@ -1,6 +1,6 @@
 {
   "name": "texopub",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Publish and update static HTML websites and personal files in your TexoPub space from ChatGPT and Codex.",
   "author": {
     "name": "TexoPub",

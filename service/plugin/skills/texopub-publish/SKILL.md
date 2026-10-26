@@ -7,6 +7,25 @@ description: Publish or update a static HTML website or upload an independent fi
 
 Use the TexoPub MCP tools. They run in the cloud and cannot read a local filesystem path. The plugin connection uses the user's TexoPub account; installing the package does not itself authorize publishing.
 
+## Choose the operation
+
+| Request | Read first | Write/action tool |
+|---|---|---|
+| Find categories or public works | `list_categories`; public catalog via HTTP | No publishing needed |
+| Identify own space/content | `get_my_space`, `list_my_works`, `get_work`, `list_my_materials` | No mutation needed |
+| Change human name/avatar/biography | `get_my_profile` | `update_my_profile` |
+| Register/change an AI partner card | `get_my_profile` | `upsert_ai_partner` |
+| Publish/update a hosted static site | `list_categories`; `get_work` for updates | `publish_website` |
+| Catalog/update an existing external site | `list_categories`; `get_work` for updates | `submit_website` |
+| Upload/update one standalone file | `get_work` for updates | `upload_asset` |
+| Publish a larger complete site | `inspect_files` in batches | `prepare_upload` → `upload_file` → `commit_upload` |
+| Change existing website listing | `get_work` | `set_work_listing` |
+| Change future default listing | `get_my_space` | `set_publish_preferences` |
+| Change standalone asset access | `get_work` | `set_asset_visibility` |
+| Close access / permanently delete | `get_work` | `archive_work` / `delete_work` respectively |
+
+`get_work` reads only owned content, including drafts/archives. It is not an arbitrary public-work reader. A connected plugin uses OAuth; do not require a separate API key or ask for a verification code/cookie. The website is a read/display community with human login, homepage opt-in and credential management; content editing belongs in AI.
+
 ## Listing choice and permanent deletion
 
 Before each website publication ask: “展示在哪里？不展示 / 仅个人主页 / 公开展示（默认）”. Read `get_my_space.default_listing` for the default suggestion. If the user already chose in the request or gave an applicable standing instruction, follow it without asking again. A suggested default is not an answer; when a reply is needed, wait for it. Initial default is `public`; the user may ask to change it using `set_publish_preferences(default_listing)` without changing existing works or opening their homepage. Changing a default alone does not suppress the publication question.
@@ -26,17 +45,19 @@ When explicitly asked to permanently delete, read `get_work` then call `delete_w
 5. Use a stable `idempotency_key` for retries of the exact same version. A new intended version needs a new key. The server validates file bytes and commits only after the whole package is ready.
 6. Return the actual service URL plus work_id/version for follow-up updates. Do not claim mobile browser or interaction acceptance without testing it.
 
-One-call `publish_website` accepts up to 8 files, 25 MiB each and 32 MiB combined; HTML is limited to 2 MiB. For larger websites, use `inspect_files` in batches of up to 8 to get the exact byte counts and SHA256 hashes, merge the manifest, call `prepare_upload`, then `upload_file` once per file and finally `commit_upload`. Staged publishing supports the existing 250-file / 100-MiB package limit and keeps the draft private until every file is ready. Use the same upload_id when retrying. It accepts extracted static files, not a ZIP requiring server-side extraction or a framework source project requiring compilation. Build/export such a project in the available execution environment first. If a referenced file cannot be handed to the plugin, preserve the work and explain the specific file handoff issue; never claim publication succeeded.
+One-call `publish_website` accepts up to 8 files including the icon/cover, 25 MiB each and 32 MiB combined; HTML is limited to 2 MiB. The complete MCP request JSON is limited to 3 MiB, so large inline text also needs staged publishing. For larger websites, use `inspect_files` in batches of up to 8 to get the exact byte counts and SHA256 hashes, merge the manifest, call `prepare_upload`, then `upload_file` once per file and finally `commit_upload`. Staged publishing supports the existing 250-file / 100-MiB package limit and keeps the draft private until every file is ready. Use the same upload_id when retrying. It accepts extracted static files, not a ZIP requiring server-side extraction or a framework source project requiring compilation. Build/export such a project in the available execution environment first. If a referenced file cannot be handed to the plugin, preserve the work and explain the specific file handoff issue; never claim publication succeeded.
 
 The platform adds its own title/home bar and favicon. The work controls its own reading UI; don't add a duplicate platform bar or reserve a platform header offset.
 
 ## Update an existing website
 
-Use `list_my_works` and `get_work` to find the intended work and current version. Pass its original `slug`, `work_id`, and current version as `expected_version`. Updates retain the public URL. The previous work-specific icon can be reused by omitting `icon_svg` and `icon`. On a version conflict, retrieve current state before proceeding; don't create a duplicate or silently overwrite changes.
+Use `list_my_works` and `get_work` to find the intended work and current version. Pass its original `slug`, `work_id`, and current version as `expected_version`. Updates retain the public URL. For `publish_website` only, the previous work-specific icon can be reused by omitting `icon_svg` and `icon`; the reused icon still counts toward the 8-file limit. `submit_website` always requires `icon_svg`, including updates. `prepare_upload` requires an explicit full manifest with an icon file and its packaged path. On a version conflict, retrieve current state before proceeding; don't create a duplicate or silently overwrite changes.
+
+Updates submit a complete new version, not a patch. Include all retained pages/dependencies and metadata. Omitted `listing` and `ai_partners` retain their old values; `ai_partners: []` clears credits. Do not assume other omitted fields are preserved: summary/tags/format may return to defaults, and an omitted `cover` uses the typographic fallback. Include the original cover image and path again to keep it. A tool does not accept every field available in the CLI/REST; `submit_website`, for example, has no tags/license parameters. Do not invent parameters or claim unsupported fields were retained.
 
 ## Independent files
 
-Use `upload_asset` with an authorized conversation file. Omit `visibility` for private storage. Set `visibility: public` only when the user authorizes public access; a private asset URL requires owner authentication and is not an anonymous image or download URL. Images needed by a public webpage should be included in that webpage's file package.
+Use `upload_asset` with an authorized conversation file. Omit `visibility` for private storage. Set `visibility: public` only when the user authorizes public access; a private asset URL requires owner authentication and is not an anonymous image or download URL. Images needed by a public webpage should be included in that webpage's file package. When uploading a replacement version, explicitly send the intended `visibility`; omitting it uses private, rather than guaranteeing the previous permission. To change only permission, use `set_asset_visibility` without reuploading.
 
 ## Account and removal
 
@@ -51,9 +72,9 @@ TexoPub is a human and AI co-creation community. Its website displays content; e
 
 Use `get_my_profile` before `update_my_profile`. Supply the current `expected_revision`, change only fields the user requested, and reread on conflict. `name: null` restores the stable generated name; `avatar_url: ""` restores the generated avatar; `bio: ""` clears the biography. Add a biography only when provided or confirmed by the user. Custom avatars must be public HTTPS images, never private authenticated file URLs. Profile tools cannot enable the homepage.
 
-Use `upsert_ai_partner` to register or update an owned partner: stable `key`, a confirmed `application` name, and current `expected_revision` (0 for new). Omitted name defaults to the application. Only set a nickname, biography, custom avatar or `show_on_profile` when covered by the user's request. This is self-reported identity, not verified model attribution.
+Read `get_my_profile` first and reuse the matching client’s existing partner key. Use `upsert_ai_partner` to register or update an owned partner: stable `key`, a confirmed `application` name, and that partner’s current `expected_revision` (0 for new), not the human profile revision. Omitted name defaults to the application. Only set a nickname, biography, custom avatar or `show_on_profile` when covered by the user's request. This is self-reported identity, not verified model attribution.
 
-Pass `ai_partners` to `publish_website` / `prepare_upload` for actual participants in this work: `[{"key":"codex","application":"Codex","contribution":"Implemented layout and interaction"}]`. Report `model` only when known from the current client. Omit unknown model and biography. Merely uploading is not authorship. Do not infer or backfill old work credits. Omitted array preserves existing credits on update; an empty array explicitly clears them. A partner appears on an enabled homepage through its visible work or an explicit profile-display request.
+Pass `ai_partners` to `publish_website` / `prepare_upload` for actual participants in this work: `[{"key":"codex","application":"Codex","contribution":"Implemented layout and interaction"}]`. Report `model` only when known from the current client. Omit unknown model and biography. Merely uploading is not authorship. Do not infer old work credits. User-confirmed historical participation can be used, but registering a partner never adds credits to old works and there is no separate metadata-only credit tool. Use a complete authorized work update when the complete source package is available; otherwise preserve the work and explain the missing capability/source. Omitted array preserves existing credits on update; an empty array explicitly clears them. `model` and `contribution` belong to each work declaration, not to `upsert_ai_partner`. Update an existing partner display name/avatar through the partner tool; a publish declaration does not rename a registered card. A partner appears on an enabled homepage through profile/public work credits or an explicit `show_on_profile: true` request. Setting it false only cancels independent display; it does not hide credits on visible works. No partner-identity deletion tool exists.
 
 Cover generation is optional. Pass a packaged image path as `cover`, or allow the platform's title/category/icon layout fallback. Do not require users to generate images just to publish.
 
@@ -62,3 +83,11 @@ Cover generation is optional. Pass a packaged image path as `cover`, or allow th
 Use `submit_website` for an existing public HTTPS website. Supply its URL, category and dedicated icon; do not copy the original site's files or change its hosting. Updates use the original work identity and current version.
 
 Use `set_asset_visibility` only for an owned standalone asset, after `get_work`; pass current version/revision. Public access requires the user's explicit request. This changes permissions without replacing bytes. It does not apply to a webpage's dependencies.
+
+## Current capability boundaries and verification
+
+There is no public tool to change only an existing work’s title/summary/cover/AI credits without submitting a complete new version. Platform-owner database maintenance is not a general plugin capability. Do not create an empty HTML replacement or lose dependencies just to change metadata. Human profile/partner cards, listing and standalone asset visibility do have direct update tools.
+
+Expired upload drafts cannot commit after 24 hours and still occupy storage. An unused new work with a null version can be permanently deleted; there is no public operation to delete just one abandoned draft version of an otherwise published work. Do not delete the whole published work to clean a draft.
+
+After writes, reread the actual profile/work and verify only requested changes, version, URL, scope and credits. Check unlisted in own content, profile on an enabled homepage, public in discovery; check asset access as well as its metadata. A successful tool response or HTTP 200 is not evidence of mobile or interaction acceptance. On 409 reread current state; on 401/403 restore the intended connection/permissions. Retry transient failures with the same idempotency key/operation parameters; repeated failures need a concrete report, not an unbounded loop.

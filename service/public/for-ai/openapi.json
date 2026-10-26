@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "TexoPub.ai 个人空间与发布 API",
-    "version": "2.1.0",
-    "description": " 托管网页自动分配 https://content.texopub.com/p/{public_slug}/ 短地址；同名自动加后缀，更新和下架不释放名称。使用发布结果的url，不自行拼接。"
+    "version": "2.1.1",
+    "description": "TexoPub发布与本人空间API。网页内容更新提交完整新版包；本人资料、伙伴名片、作品listing与独立素材权限有直接修改接口。三档listing只控制列表，独立素材private/public控制实际访问。详情见/for-ai/SKILL.md及references/publish.md。"
   },
   "servers": [
     {
@@ -357,7 +357,8 @@
           "413": {
             "description": "额度或大小超限"
           }
-        }
+        },
+        "description": "提交完整的新作品/素材/外站图标清单；更新同时提供原work_id与当前expected_version。不是文件补丁。更新省略listing与ai_partners沿用原值，ai_partners=[]明确清空；不要假定摘要、标签、format、cover等省略仍保留。不存在独立作品metadata-only更新接口。"
       }
     },
     "/v1/uploads/{id}/files/{path}": {
@@ -767,7 +768,8 @@
           "404": {
             "description": "不存在或不属于本人"
           }
-        }
+        },
+        "description": "仅本人，包括草稿/归档/删除状态；返回current version及revision。MCP get_work、CLI show使用此接口；公开单件读取是/v1/works/{id}。"
       }
     },
     "/v1/me/profile": {
@@ -833,7 +835,8 @@
           "409": {
             "description": "Reread current revision before retrying"
           }
-        }
+        },
+        "description": "只修改用户请求的名字、简介、头像。expected_revision来自最近GET。name=null恢复默认名，bio空字符串清空，avatar_url空字符串恢复几何头像；不能更改主页授权。"
       }
     },
     "/v1/me/ai-partners": {
@@ -909,7 +912,8 @@
           "409": {
             "description": "Reread current revision before retrying"
           }
-        }
+        },
+        "description": "管理伙伴名片，不会给作品补署名。创建expected_revision=0，更新用该伙伴自己的revision。model/contribution属于发布时的ai_partners数组，不是本接口参数。show_on_profile=false仅取消独立展示，仍有可见作品署名的伙伴仍显示；不能开启个人主页。"
       }
     },
     "/v1/me/works/{work_id}/visibility": {
@@ -969,7 +973,8 @@
               "type": "string"
             }
           }
-        ]
+        ],
+        "description": "仅本人独立素材，核对expected_version和expected_revision。不重传文件；公开需用户明确授权。网页依赖不适用。"
       }
     }
   },
