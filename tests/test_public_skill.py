@@ -2,6 +2,7 @@
 from pathlib import Path
 import hashlib
 import json
+import posixpath
 import re
 import unittest
 import zipfile
@@ -28,7 +29,8 @@ class PublicSkillTests(unittest.TestCase):
                 if rel.endswith('.md'):
                     for target in re.findall(r'\]\(([^)]+)\)',body.decode()):
                         if '://' not in target and not target.startswith('#'):
-                            resolved=(Path(rel).parent/target).as_posix()
+                            resolved=posixpath.normpath((Path(rel).parent/target.split('#')[0]).as_posix())
+                            self.assertFalse(resolved.startswith('../'))
                             self.assertIn(prefix+resolved,z.namelist())
         # Actual private credential bytes must never be included in the public package.
         for path in (ROOT/'.secrets').glob('*.json'):

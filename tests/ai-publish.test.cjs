@@ -10,5 +10,5 @@ test('guide explains real listing versus private asset permissions',async()=>{
  const c=await open('/publish/');const text=c.d.querySelector('.help-details').textContent;assert.match(text,/三档链接均可访问/);assert.match(text,/独立素材默认私有/);c.close();
 });
 test('packaged clients expose the same new identity, partner and asset permission capabilities',()=>{
- const client=fs.readFileSync('build/current/site/downloads/commonplace.py','utf8');for(const marker of ['profile-update','--ai-partners','asset-visibility','--expected-revision'])assert(client.includes(marker));const manifest=JSON.parse(fs.readFileSync('build/current/site/for-ai/manifest.json'));assert.equal(manifest.version,'2.1.0');assert.equal(manifest.contains_credentials,false);
+ const client=fs.readFileSync('build/current/site/downloads/commonplace.py','utf8');for(const marker of ['profile-update','--ai-partners','asset-visibility','--expected-revision'])assert(client.includes(marker));const manifest=JSON.parse(fs.readFileSync('build/current/site/for-ai/manifest.json'));assert.equal(manifest.version,'2.1.1');assert.equal(manifest.contains_credentials,false);
 });
