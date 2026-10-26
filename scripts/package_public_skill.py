@@ -3,10 +3,10 @@
 from pathlib import Path
 import hashlib,json,shutil,zipfile
 ROOT=Path(__file__).resolve().parents[1]
-VERSION='2.1.1'
+VERSION='2.2.0'
 NAME='commonplace-remote-publish'
 BASE=json.loads((ROOT/'cloudflare.json').read_text())['site_url'].rstrip('/')
-ALLOWED=['SKILL.md','references/publish.md','references/discover.md','scripts/commonplace.py']
+ALLOWED=['SKILL.md','references/publish.md','references/discover.md','scripts/commonplace.py','en/SKILL.md','en/references/publish.md','en/references/discover.md']
 source=ROOT/'service/skill'/NAME
 public=ROOT/'service/public'
 shutil.copy2(ROOT/'scripts/remote_publish.py',source/'scripts/commonplace.py')

@@ -1,0 +1,22 @@
+name: Test and build
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: .tools/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci --prefix .tools
+      - run: python3 scripts/package_public_skill.py && python3 scripts/package_plugin.py
+      - run: python3 scripts/build_public.py
+      - run: node --test service/tests/*.test.cjs tests/community-live.test.cjs tests/i18n.test.cjs
+      - run: python3 -m unittest discover -s tests -v

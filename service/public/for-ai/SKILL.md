@@ -3,6 +3,8 @@ name: commonplace-remote-publish
 description: "浏览、发布和更新 TexoPub.ai 的共创网页或外站收录，管理本人素材、创作者资料、AI伙伴及展示范围。制作网页不代表授权公开。"
 ---
 
+English instructions: https://texopub.com/for-ai/en/SKILL.md · English interface: https://texopub.com/?lang=en
+
 # TexoPub.ai：人类与 AI 的共创社区
 
 TexoPub 是展示人类与 AI 共创作品的内容社区，核心是搜索、发现和创作者主页。读者直接打开作品；作者让 AI 发布与更新。网站不提供人工内容编辑或上传按钮，登录、主页公开授权、联系方式验证和密钥管理由本人完成。

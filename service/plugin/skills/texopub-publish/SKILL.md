@@ -3,6 +3,8 @@ name: texopub-publish
 description: Publish or update a static HTML website or upload an independent file to the user's TexoPub space using connected cloud MCP tools. Use when the user requests TexoPub publishing, an update, or personal asset storage, creator profiles, AI partners, external-site cataloging, asset permissions, listing changes, default preferences, or permanent deletion.
 ---
 
+English instructions: https://texopub.com/for-ai/en/SKILL.md · English interface: https://texopub.com/?lang=en
+
 # TexoPub cloud publishing
 
 Use the TexoPub MCP tools. They run in the cloud and cannot read a local filesystem path. The plugin connection uses the user's TexoPub account; installing the package does not itself authorize publishing.

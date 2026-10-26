@@ -19,7 +19,7 @@ class PublicSkillTests(unittest.TestCase):
         self.assertEqual(len(data),manifest['bytes'])
         self.assertEqual(data,(public/'downloads/commonplace-skill.zip').read_bytes())
         prefix='commonplace-remote-publish/'
-        expected={'SKILL.md','references/publish.md','references/discover.md','scripts/commonplace.py'}
+        expected={'SKILL.md','references/publish.md','references/discover.md','scripts/commonplace.py','en/SKILL.md','en/references/publish.md','en/references/discover.md'}
         with zipfile.ZipFile(archive) as z:
             self.assertEqual(set(z.namelist()),{prefix+p for p in expected})
             self.assertEqual(z.read(prefix+'scripts/commonplace.py'),(ROOT/'scripts/remote_publish.py').read_bytes())

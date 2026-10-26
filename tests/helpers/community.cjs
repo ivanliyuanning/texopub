@@ -1,18 +1,19 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),{JSDOM}=require('../../.tools/node_modules/jsdom'),esbuild=require('../../.tools/node_modules/esbuild');
-let source;const pid='a'.repeat(32),other='b'.repeat(32),wid='c'.repeat(32),v='d'.repeat(32),tick=()=>new Promise(r=>setImmediate(r));
-async function prepare(){source ||= (await esbuild.build({entryPoints:['templates/community/app.mjs'],bundle:true,write:false,format:'esm'})).outputFiles[0].text}
+const sources={};const pid='a'.repeat(32),other='b'.repeat(32),wid='c'.repeat(32),v='d'.repeat(32),tick=()=>new Promise(r=>setImmediate(r));
+async function prepare(english=false){const entry=english?'build/i18n-tests/en/app.mjs':'templates/community/app.mjs';if(english&&!sources[entry])require('node:child_process').execFileSync('python3',['-c',"from pathlib import Path;from scripts.localize import localize_community;localize_community(Path('.'),Path('build/i18n-tests'))"]);return sources[entry] ||= (await esbuild.build({entryPoints:[entry],bundle:true,write:false,format:'esm'})).outputFiles[0].text}
 async function settle(){for(let n=0;n<12;n++)await tick()}
 async function open(path='/',options={}){
- await prepare();
+ const source=await prepare(options.english);
  const dom=new JSDOM('<div id="app"></div>',{url:'https://texopub.com'+path,runScripts:'outside-only'}),w=dom.window,calls=[];let logged=options.logged??true,expired=false,profilePublic=false,key=null,keySecret='txp_synthetic_once_only',challengeResolve;
  const identity={id:pid,publisher_id:pid,name:'真实作者<script>bad()</script>',bio:'用户确认的简介',revision:0,avatar_url:'',ai_partners:[]};
  const work={id:wid,publisher_id:pid,creator:identity,title:'实际作品',summary:'可检索内容',slug:'actual',category_id:'humanities/literature',category:'文学与阅读',category_path:['人文与艺术','文学与阅读'],format:'article',listing:'public',status:'published',kind:'work',version:v,revision:1,url:'https://content.texopub.com/p/actual/',updated:'2026-10-26',ai_partners:[]};
  const own=[work,{...work,id:'e'.repeat(32),title:'不展示作品',listing:'unlisted'},{...work,id:'f'.repeat(32),title:'归档作品',status:'hidden'},{...work,id:'1'.repeat(32),title:'草稿作品',status:'draft',version:null}];
+ w.document.cookie='texopub_lang='+(options.english?'en':'zh');
  w.matchMedia=()=>({matches:false});w.scrollTo=()=>{};w.confirm=()=>true;w.URL.createObjectURL=()=> 'blob:local-test';w.URL.revokeObjectURL=()=>{};
  w.fetch=async(url,init={})=>{
   const body=init.body&&JSON.parse(init.body),p=String(url).replace('/api/v1/','');calls.push({p,body,init});let status=200,data={};
   if(p==='/community/identity-lexicon.json')data=JSON.parse(fs.readFileSync('service/identity-lexicon.json'));
-  else if(p==='/community/plugin.html'||p==='/community/privacy.html')return {ok:true,status:200,text:async()=>'<h1>站点说明</h1>'};
+  else if(/^\/community\/(en\/)?(plugin|privacy)\.html$/.test(p))return {ok:true,status:200,text:async()=>fs.readFileSync('templates/'+(p.includes('/en/')?'en/'+(p.includes('plugin')?'plugin':'privacy')+'.html':p.includes('plugin')?'plugin.html':'account-privacy.html'),'utf8')};
   else if(p==='categories')data=JSON.parse(fs.readFileSync('taxonomy.json'));
   else if(p==='catalog'){if(options.failPublic){status=503;data={error:'目录暂时不可用'}}else data={items:options.publicWorks||[work]};}
   else if(p==='materials')data={items:Array.from({length:50},(_,n)=>({id:'public-'+n,name:'公开图片'+n,collection:'公开作品',mime:'image/png',url:'https://images.example.com/'+n+'.png',bytes:1024}))};

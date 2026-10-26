@@ -18,3 +18,8 @@ service/worker.bundle.mjs
 .tools/*
 !.tools/package.json
 !.tools/package-lock.json
+# Local owner registries and collaboration state are not public source.
+library.json
+publication-state.json
+历史作品候选.json
+.agents/
