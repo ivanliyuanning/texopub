@@ -18,5 +18,5 @@ jobs:
       - run: npm ci --prefix .tools
       - run: python3 scripts/package_public_skill.py && python3 scripts/package_plugin.py
       - run: python3 scripts/build_public.py
-      - run: node --test service/tests/*.test.cjs tests/community-live.test.cjs tests/i18n.test.cjs
+      - run: TEXOPUB_TEST_SITE=build/public/site node --test service/tests/*.test.cjs tests/*.test.cjs
       - run: python3 -m unittest discover -s tests -v

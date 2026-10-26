@@ -54,7 +54,7 @@ python3 -m http.server 8781 --directory build/public/site
 Open `http://127.0.0.1:8781/?lang=en`. The static shell and publishing guides work locally; live account/API calls require same-origin Worker routes. For full offline interaction tests, use the fixtures in `tests/helpers/community.cjs`; they do not need live credentials or send SMS.
 
 ```sh
-node --test service/tests/*.test.cjs tests/community-live.test.cjs tests/i18n.test.cjs
+TEXOPUB_TEST_SITE=build/public/site node --test service/tests/*.test.cjs tests/*.test.cjs
 python3 -m unittest discover -s tests -v
 ```
 

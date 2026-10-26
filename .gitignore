@@ -22,4 +22,8 @@ service/worker.bundle.mjs
 library.json
 publication-state.json
 历史作品候选.json
-.agents/
+.agents/*
+!.agents/plugins/
+.agents/plugins/*
+!.agents/plugins/marketplace.json
+service/public/downloads/texopub-worker-*.mjs

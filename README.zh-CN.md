@@ -36,7 +36,7 @@ python3 scripts/package_public_skill.py
 python3 scripts/package_plugin.py
 python3 scripts/build_public.py
 python3 -m http.server 8781 --directory build/public/site
-node --test service/tests/*.test.cjs tests/community-live.test.cjs tests/i18n.test.cjs
+TEXOPUB_TEST_SITE=build/public/site node --test service/tests/*.test.cjs tests/*.test.cjs
 python3 -m unittest discover -s tests -v
 ```
 
