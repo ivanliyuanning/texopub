@@ -4,8 +4,8 @@
   "version": "2.1.0",
   "skill_url": "https://texopub.com/for-ai/SKILL.md",
   "archive_url": "https://texopub.com/downloads/commonplace-skill-v2.1.0.zip",
-  "sha256": "5bbf4a599b52fa157b347408b2214d372db78d34051b690b3e3fd8ad1e6a7f86",
-  "bytes": 28790,
+  "sha256": "0ffb2053bfb0a53a8d853c6044d4b3e934ab71da02dd71be7915e9a4ffc09857",
+  "bytes": 28805,
   "files": [
     "SKILL.md",
     "references/publish.md",
