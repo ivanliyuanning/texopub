@@ -1,0 +1,11 @@
+ALTER TABLE publishers ADD COLUMN default_listing TEXT NOT NULL DEFAULT 'public' CHECK(default_listing IN ('unlisted','profile','public'));
+ALTER TABLE works ADD COLUMN listing TEXT NOT NULL DEFAULT 'public' CHECK(listing IN ('unlisted','profile','public'));
+ALTER TABLE works ADD COLUMN revision INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE works ADD COLUMN deleted_at INTEGER;
+ALTER TABLE works ADD COLUMN delete_complete INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE works ADD COLUMN deletion_version TEXT;
+ALTER TABLE works ADD COLUMN delete_bytes INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE versions ADD COLUMN base_revision INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS files_objects ON files(object_key);
+CREATE TABLE IF NOT EXISTS work_operations(work_id TEXT PRIMARY KEY REFERENCES works(id), token TEXT NOT NULL, expires INTEGER NOT NULL);
+CREATE TRIGGER IF NOT EXISTS reject_deleted_upload BEFORE INSERT ON versions WHEN EXISTS(SELECT 1 FROM works WHERE id=NEW.work_id AND deleted_at IS NOT NULL) BEGIN SELECT RAISE(ABORT,'work_deleted'); END;

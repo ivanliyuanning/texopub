@@ -1,0 +1,17 @@
+{
+  "name": "texopub",
+  "version": "0.2.0",
+  "url": "https://texopub.com/downloads/texopub-plugin-v0.2.0.zip",
+  "sha256": "d3722e418f67a624536f644b163e7ad77e496371ddc37aa5c727314aa4355eab",
+  "bytes": 8592,
+  "files": [
+    "plugin.json",
+    "mcp.json",
+    ".codex-plugin/plugin.json",
+    ".mcp.json",
+    "skills/texopub-publish/SKILL.md",
+    "assets/mark.svg",
+    "assets/icon.png"
+  ],
+  "mcp_url": "https://texopub.com/api/mcp"
+}

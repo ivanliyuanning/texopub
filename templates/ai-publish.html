@@ -1,0 +1,22 @@
+<section class="ai-publish" aria-labelledby="publish-title">
+  <nav class="skill-links publish-modes" aria-label="提交方式"><a href="/publish/" data-kind="work">托管发布</a><span aria-hidden="true">·</span><a href="/publish/?kind=external" data-kind="external">收录已有网站</a><span aria-hidden="true">·</span><a href="/publish/?kind=asset" data-kind="asset">独立素材</a></nav>
+  <div class="publish-intro"><span class="eyebrow">TexoPub.ai · AI 共创作品门户</span><h1 id="publish-title">好作品，<br>让你的 AI 来分享。</h1><p>TexoPub 托管你的静态网页，自动提供 HTTPS 和 content.texopub.com 下的短网址。<br>把下面这段话交给你的 AI，剩下的发布工作让它完成。</p></div>
+
+  <p class="publish-access-note">手机 ChatGPT / 云端工具：<a href="/plugins/texopub/">连接 TexoPub 插件测试版 →</a></p>
+  <p class="publish-access-note">使用 Skill / 命令行发布需要密钥。<a href="/space/settings/keys/">获取密钥给 AI →</a></p>
+  <div class="publish-stage">
+    <div class="agent-demo" role="img" aria-label="示意：向AI发出发布指令，由AI准备分类、图标并返回作品链接">
+      <div class="demo-windowbar"><span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span><span>你的 AI 助手</span><span aria-hidden="true">↗</span></div>
+      <div class="demo-conversation"><div class="demo-you">你</div><p class="demo-bubble">请使用TexoPub.ai Skill，<br>把我们做好的网页分享出去。</p><div class="demo-agent-label"><img src="/favicon.svg" alt="" width="22" height="22">AI 来完成</div><ol class="demo-tasks"><li>读懂作品，选择主题分类</li><li>准备素材，制作专属图标</li><li>部署网页，自动分配短网址</li></ol><p class="demo-result">最后，把能直接打开的网址交给你 <span aria-hidden="true">↗</span></p></div>
+    </div>
+    <section class="prompt-panel" aria-labelledby="prompt-title">
+      <p class="prompt-step">01 复制提示词　02 发给 AI　03 分享作品</p><h2 id="prompt-title">把这段话，发给你的 AI。</h2><label class="prompt-label" for="ai-publish-prompt">包含 Skill 地址的完整提示词</label><textarea id="ai-publish-prompt" class="ai-prompt" readonly spellcheck="false" rows="8">{{PROMPT}}</textarea>
+      <div class="prompt-actions"><p id="prompt-feedback" class="prompt-feedback" role="status" aria-live="polite">复制后，粘贴到你常用的 AI Agent 中。</p><button id="copy-ai-prompt" class="copy-ai-prompt" type="button">复制给 AI 的提示词 <span aria-hidden="true">↗</span></button></div>
+      <div class="skill-links"><a href="{{SKILL_ARCHIVE}}" download>下载 Skill{{SKILL_VERSION}}</a><span aria-hidden="true">·</span><a href="/for-ai/SKILL.md">阅读 Skill 内容</a><span aria-hidden="true">·</span><a href="/publish/?kind=asset">仅上传素材 →</a><span aria-hidden="true">·</span><a href="/publish/?kind=external">收录已有网站 →</a></div>
+    </section>
+  </div>
+  <section class="publish-access" id="publish-access" aria-labelledby="access-title"><div class="access-heading"><span class="eyebrow">开始之前 · 个人空间</span><h2 id="access-title">先登录，再给 AI 一把发布密钥。</h2><p>用手机号验证码进入自己的空间，首次验证自动注册；可绑定备用邮箱。到「AI 密钥」创建并下载凭证，把文件路径交给 AI，它就能管理属于你的内容。<a href="/space/settings/keys/">获取密钥给 AI →</a></p><p>安装 Skill 不会自动获得密钥。短信和邮箱验证码由你在浏览器填写，AI 不需要知道。密钥默认六个月有效，可自定或延长期限、选择只读或发布权限，并随时撤销。</p></div></section>
+  <dl class="publish-possibilities"><div><dt>发现好作品</dt><dd>按主题浏览，找到能帮上忙的网页。</dd></div><div><dt>打开就能用</dt><dd>导览、报告与小工具，直接在浏览器使用。</dd></div><div><dt>一起共创</dt><dd>让有用的成果走出聊天记录，被更多人看见。</dd></div></dl>
+  <section class="publish-notes" aria-labelledby="publish-faq-title"><div><span class="eyebrow">发布之前</span><h2 id="publish-faq-title">第一次来？<br>先认识这份 Skill。</h2><p>它介绍这个作品门户，也教 AI 如何发现、部署、更新和查看作品。欢迎带着你和 AI 一起做出的好内容来共创。</p><a href="/">先逛逛作品 →</a></div><div class="publish-faq"><details><summary>凭证和 Skill 有什么区别？</summary><p>Skill 是公开的使用说明和客户端；凭证是你在个人空间创建的密钥。AI 安装 Skill 后，仍需读取你下载的个人凭证文件才能发布。<a href="#publish-access">查看登录、创建和使用步骤 →</a></p></details><details><summary>要自己选文件、手动上传吗？</summary><p>这里的发布入口只提供给 AI 的提示词。把你要公开的网页或素材交给自己的 AI，由它调用发布服务；网站不提供文件选择或拖拽上传。</p></details><details><summary>发布完成后，去哪里查看？</summary><p>托管发布后，AI 会自动拿到 content.texopub.com 下的短网址，作品也会加入首页分类导航。同名作品自动加短后缀，更新时网址保持不变。独立图片、音视频和文档默认进入自己的私有素材库；明确公开后才可供他人访问。更新作品时保留网址。</p></details><details><summary>已经有自己的网站和域名，也能加入吗？</summary><p>可以。选择「收录已有网站」，把网址交给你的 AI。使用自己的发布密钥提交简介、分类和专属图标，作品就会加入目录；点击后直接访问原站，内容仍由你自行托管。此功能不涉及域名绑定或网站迁移。</p></details><details><summary>我的 AI 能安装这个 Skill 吗？</summary><p>需要能读文件并执行 Python 或调用 HTTP 接口的 Agent。如果它不支持安装 Skill，也可以读取在线技能说明，使用随包客户端完成相同流程。</p></details><details><summary>哪些内容适合分享？</summary><p>有用的指南、研究、教程、可视化与交互工具都欢迎。只发布你明确同意公开的内容，并保留来源说明；分享许可由作者决定。第一版有文件大小和静态网页能力限制，AI 会按 Skill 中的说明检查。</p></details></div></section>
+</section>
+<script id="publish-prompts" type="application/json">{{PROMPTS_JSON}}</script><script>{{SCRIPT}}</script>

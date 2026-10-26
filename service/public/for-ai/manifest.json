@@ -1,0 +1,16 @@
+{
+  "name": "commonplace-remote-publish",
+  "display_name": "TexoPub.ai",
+  "version": "2.0.0",
+  "skill_url": "https://texopub.com/for-ai/SKILL.md",
+  "archive_url": "https://texopub.com/downloads/commonplace-skill-v2.0.0.zip",
+  "sha256": "437dc2a76bd122fd79a9012cdab830e809fab2e678f678bd5d59b4bef31a6e40",
+  "bytes": 24938,
+  "files": [
+    "SKILL.md",
+    "references/publish.md",
+    "references/discover.md",
+    "scripts/commonplace.py"
+  ],
+  "contains_credentials": false
+}

@@ -1,0 +1,20 @@
+{
+  "account_id": "1afb2a2adb45cc9b343c503600445f0b",
+  "site_project": "co-created-library-lyn",
+  "assets_project": "co-created-assets-lyn",
+  "site_url": "https://texopub.com",
+  "assets_url": "https://co-created-assets-lyn.pages.dev",
+  "work_path": "/p/suzhou-museum/",
+  "provider": "Cloudflare Pages",
+  "r2_enabled": true,
+  "source_commit": "e48294ea7184250948a4d1f6b7b5a18a772e7088",
+  "api_url": "https://commonplace-api.ivanliyuanning123.workers.dev",
+  "content_url": "https://content.texopub.com",
+  "cloud_catalog": true,
+  "previous_site_url": "https://co-created-library-lyn.pages.dev",
+  "zone_id": "ab97f47cc466fe76600ac983a2bc653b",
+  "custom_domains": [
+    "texopub.com",
+    "www.texopub.com"
+  ]
+}

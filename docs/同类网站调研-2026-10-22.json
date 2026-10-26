@@ -1,0 +1,133 @@
+{
+  "research_date": "2026-10-22",
+  "timezone": "Asia/Shanghai",
+  "scope": "对照 TexoPub 的 AI 发布、静态网页托管、独立素材、作品发现和机器可读索引，查阅公开官网和文档。",
+  "method_limits": [
+    "核查公开页面和接口说明，没有注册、付费、上传测试或测量稳定性。",
+    "功能说明属于官方文档声明，不代表独立端到端验收；未发现某功能不能推断该产品没有该功能。",
+    "网站自报部署数、用户数、客户证言和营销对比表不作为市场规模或效果证据。",
+    "探索性样本，不是完整市场普查。价格和限额是当日页面口径。"
+  ],
+  "our_baseline": {
+    "source": ["任务进度.md", "service/README.md", "AGENTS.md"],
+    "features": ["邀请制 HTTP API 与公开 Skill", "多文件静态网页和独立素材", "发布后自动进入主题分类目录", "机器可读作品和素材目录", "每个作品独立图标", "稳定 URL 更新"],
+    "limits": ["未有真实第三方用户 AI 试用", "没有 MCP、公开注册、社交或推荐系统", "仅一个公开作品，目录规模尚未验证"]
+  },
+  "competitors": [
+    {
+      "name": "DKFile",
+      "group": "发布、素材与作品发现组合",
+      "sources": ["https://www.dkfile.net/", "https://www.dkfile.net/api"],
+      "documented": ["HTML 与多文件项目发布", "独立图片、视频、音频和数据托管", "REST API 与密钥认证", "精选工具库申请收录", "内置 AI 生成及微信小程序入口"],
+      "assessment": "本轮样本中与我们现有功能组合重合较多，应优先对照。主题目录与自动收录策略是否相同仍需分别验证。",
+      "limits": "精选工具库链接两次读取失败；收录机制依据官网说明，未逐个验收案例。微信小程序与实际部署未测试。"
+    },
+    {
+      "name": "here.now",
+      "group": "AI Agent 发布基础服务",
+      "sources": ["https://here.now/", "https://here.now/docs"],
+      "documented": ["Skill 和 HTTP API 发布网站、应用及文件", "匿名站点 24 小时有效，持密钥可长期保留", "自定义域名与团队工作区", "私有 Drives 存储和跨 Agent 文件共享", "OpenAPI 与 well-known 发现文件"],
+      "assessment": "AI 原生接入、发布流程与机器可发现文档值得优先研究。素材和文件共享并非我们独有。",
+      "limits": "其公开文档明确暂不宣称公开 MCP 或 OAuth；没有在已查页面确认与我们类似的全站主题作品目录。"
+    },
+    {
+      "name": "Tiiny Host",
+      "group": "通用托管与 AI 发布",
+      "sources": ["https://tiiny.host/feature/agent-friendly/", "https://api-docs.tiiny.host/connection-guide-2259947m0"],
+      "documented": ["HTML、ZIP、静态构建产物与文件分享", "REST API、MCP、Skill 和 Claude connector", "更新保留网址", "单文件预览与多文件目录列表"],
+      "assessment": "AI 直接发布与文件分享已形成完整产品入口。文件目录列表不能直接等同于面向全站访客的主题作品门户。",
+      "limits": "未读取到有效定价正文，不记录具体费用；未实测连接器。"
+    },
+    {
+      "name": "FolioDrop",
+      "group": "AI 作品发布与个人作品集",
+      "sources": ["https://foliodrop.app/zh/", "https://foliodrop.app/zh/publish"],
+      "documented": ["复制提示词给 AI，经 MCP 授权发布", "单文件 HTML 托管", "Space、个人展示与来源上下文", "可见性和访问密钥"],
+      "assessment": "发布入口与我们非常相似；说明复制提示词、长期作品整理均已存在。它更强调个人展示。",
+      "limits": "文档明确不支持 ZIP、多文件目录及自定义域名；单文件可以引用持续可访问的 HTTPS 外部资源。"
+    },
+    {
+      "name": "Hello.TD",
+      "group": "网页发布与公共展示墙",
+      "sources": ["https://www.hello.td/", "https://www.hello.td/gallery"],
+      "documented": ["HTML、ZIP 或粘贴代码发布", "自选网址后缀", "作品可选择在展示墙公开", "展示墙搜索与最新、最热排序"],
+      "assessment": "发布后让站内访客发现作品的路径直接可参考。",
+      "pricing_observed": "官网标示 6 元部署一年；没有购买或验证长期履约。",
+      "limits": "本次读取展示墙仅返回一个作品，不用于推断完整托管量；未在查阅页面确认 Agent API。"
+    },
+    {
+      "name": "HtmlDock",
+      "group": "中文 AI 发布与静态托管",
+      "sources": ["https://dtkj.red/editor", "https://dtkj.red/ai/"],
+      "documented": ["HTML 与 ZIP 多文件托管", "AI 发布 API 和令牌认证", "覆盖更新站点", "自定义域名、访问密码与访客留言", "主页标示图片转链接"],
+      "assessment": "中文 Agent 发布说明及覆盖更新流程与我们接近。",
+      "limits": "ZIP 文档列明积分按天续费，不能把编辑页的免费宣传理解为全部托管永久免费；未找到公开主题目录的确认依据。"
+    },
+    {
+      "name": "Showly",
+      "group": "Agent 成果发布与审阅",
+      "sources": ["https://showly.ai/zh-CN"],
+      "documented": ["通过提示词和 MCP 连接 Agent", "私有预览后正式发布", "版本历史与恢复", "自定义域名与团队功能"],
+      "assessment": "重在把 Agent 产出交给客户或团队审阅。私有预览到正式发布的区分值得参考。",
+      "limits": "免费计划有积分限制；营销页示例和证言不当成真实业务验收。"
+    },
+    {
+      "name": "htmlbook",
+      "group": "AI 文档书架",
+      "sources": ["https://htmlbook.io/"],
+      "documented": ["HTML 和 Markdown 经 MCP、CLI 或 API 保存", "按书、工作区与项目组织", "移动阅读、主题切换和公开链接", "默认私有、版本快照与团队编辑"],
+      "assessment": "与共创书架早期的整理阅读心智接近，更侧重个人或团队文档，而非我们面向大众的主题导航。",
+      "limits": "官网标示早期免费，不能推断未来一直免费；未测试交互 HTML 被重新配主题后的兼容性。"
+    },
+    {
+      "name": "BinHTML",
+      "group": "轻量 AI HTML 分享",
+      "sources": ["https://binhtml.com/"],
+      "documented": ["MCP 与 API 发布 HTML", "沙箱查看器", "原始 HTML 下载", "默认不公开列出，付费增加私有和永久保留能力"],
+      "assessment": "HTML 托管与安全分享的直接同类，公开发现不是其首页重点。",
+      "limits": "默认 unlisted 仍是持链接可访问，不能等同于私有鉴权。"
+    },
+    {
+      "name": "ShipPage",
+      "group": "轻量 Agent 发布接口",
+      "sources": ["https://shippage.ai/?lang=zh"],
+      "documented": ["HTTP POST 发布 HTML 或 Markdown", "Skill 与 MCP", "首次调用自动获得 Agent 身份", "页面管理和密码保护"],
+      "assessment": "说明 AI 一句话发布本身已存在多种实现。",
+      "limits": "官网免费口径为每月 20 次、14 天保留、每页 500KB；Pro 标示开发中，不当作已可购买的长期服务。"
+    },
+    {
+      "name": "Websim",
+      "group": "互动作品创作与发现社区",
+      "sources": ["https://websim.com/", "https://websim.com/privacy"],
+      "documented": ["首页作品搜索、Hot 与 Top 时间榜", "浏览器内体验游戏和应用", "官方说明 ChatGPT 连接可搜索作品、读取文件、创建和编辑项目及使用社区素材"],
+      "assessment": "更接近大众发现 AI 互动作品的方向；首页实际读取到的内容以游戏和互动应用为主。",
+      "limits": "平台内创作心智更强；没有验证它是否适合作为任意外部多文件静态作品的通用导入托管。"
+    },
+    {
+      "name": "display.dev",
+      "group": "Agent 文档与团队协作",
+      "sources": ["https://display.dev/"],
+      "documented": ["Agent 发布 HTML 或 Markdown", "同一网址版本更新", "评论、在线编辑、权限与审计记录"],
+      "assessment": "可参考审阅反馈到 AI 更新的闭环；主要方向为团队协作。",
+      "limits": "当前每份 artifact 为单 HTML 或 Markdown；没有运行应用后端。官网对其他厂商的比较未作为独立证据。"
+    },
+    {
+      "name": "itch.io",
+      "group": "相邻的浏览器作品分发平台",
+      "sources": ["https://itch.io/docs/creators/html5", "https://itch.io/games/html5/tag-online"],
+      "documented": ["HTML 单文件或含 index.html 的 ZIP 托管", "浏览器中 iframe 运行", "作品列表、标签筛选和排序"],
+      "assessment": "可参考作品分发与分类发现；官方文档允许非游戏 HTML/CSS/JS 项目，但平台心智仍以游戏为主。",
+      "limits": "不把它列为 AI 原生发布入口的直接对手。"
+    }
+  ],
+  "excluded_from_strong_comparison": [
+    {"name": "Webly", "source": "https://webly.ai/", "reason": "搜索摘要有 Agent 托管介绍，但本次直接读取主页只见访问检查，证据不足，不据此确认当前可用范围。"}
+  ],
+  "conclusions_inferred": [
+    "存在多家直接同类，AI 发布、HTML 托管、素材直链、Skill 或 MCP 均不能单独视为独有优势。",
+    "DKFile 优先对照整体组合，here.now 与 Tiiny Host 优先对照 Agent 接入，FolioDrop 对照个人展示，Websim 对照作品发现。",
+    "可继续验证跨 AI 发布加面向普通访客的主题目录和可复用作品，但这是产品方向假设，不是已建立的竞争壁垒。",
+    "短期更有价值的是获取真实外部作者和不同类别作品，验证首次发布能否完成、访客能否找到并实际使用作品，再决定扩大功能。"
+  ],
+  "completion": "本轮公开资料调研完成；没有部署网站、安装外部 Skill、注册服务或公开其他作品。"
+}

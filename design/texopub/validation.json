@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-22",
+  "http_resources": [
+    "app-icon-180.png",
+    "logo-inline.svg",
+    "logo-mono.svg",
+    "logo-reverse.svg",
+    "logo.svg",
+    "mark-16.png",
+    "mark-32.png",
+    "mark-64.png",
+    "mark.svg",
+    "preview.png",
+    "tokens.css",
+    "work-icon.svg",
+    "品牌方案.md"
+  ],
+  "svg_parsed": [
+    "app-icon.svg",
+    "logo-inline.svg",
+    "logo-mono.svg",
+    "logo-reverse.svg",
+    "logo.svg",
+    "mark-mono.svg",
+    "mark.svg",
+    "preview.svg",
+    "work-icon.svg"
+  ],
+  "wordmarks_outlined": true,
+  "calculated_text_contrast": {
+    "#C74727 on #FAF8F3": 4.54,
+    "#222B28 on #FAF8F3": 13.7,
+    "#69736C on #FAF8F3": 4.63,
+    "#1E6B52 on #FAF8F3": 6.03,
+    "#FFAD8F on #222B28": 8.05
+  },
+  "browser_checks": [
+    "narrow viewport visual",
+    "primary/inline/reverse/mono switching",
+    "search empty and reset",
+    "color copy success"
+  ],
+  "limitations": [
+    "No claim of full desktop/mobile device or site accessibility audit.",
+    "Local design preview; production templates and deployment not changed."
+  ]
+}

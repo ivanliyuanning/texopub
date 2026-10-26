@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "texopub": {
+      "url": "https://texopub.com/api/mcp"
+    }
+  }
+}

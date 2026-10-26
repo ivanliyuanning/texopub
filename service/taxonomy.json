@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "policy": "每份作品选择一个最贴近主要内容的二级分类；跨主题用标签补充。按内容主题归类，导览、报告或工具等属于内容形式。没有合适分类时先维护分类表，不使用其他或自动猜测兜底。已有分类 ID 保持稳定。",
+  "groups": [
+    {"id":"humanities","name":"人文与艺术","description":"从器物、历史到艺术与文字","children":[{"id":"museums","name":"博物馆与文物"},{"id":"history","name":"历史与文化"},{"id":"arts","name":"艺术与设计"},{"id":"literature","name":"文学与阅读"}]},
+    {"id":"travel","name":"旅行与地方","description":"认识一座城，规划一段路","children":[{"id":"destinations","name":"目的地指南"},{"id":"itineraries","name":"行程与路线"},{"id":"places","name":"城市与地理"}]},
+    {"id":"living","name":"生活与居家","description":"日常生活里的具体办法","children":[{"id":"home","name":"家居与收纳"},{"id":"food","name":"饮食与烹饪"},{"id":"gardening","name":"园艺与养护"},{"id":"shopping","name":"消费与选购"}]},
+    {"id":"science","name":"科学与自然","description":"观察世界，理解它的运作","children":[{"id":"nature","name":"自然与生态"},{"id":"explainers","name":"科学原理"},{"id":"experiments","name":"实验与探索"}]},
+    {"id":"technology","name":"技术与 AI","description":"理解技术，也把技术用起来","children":[{"id":"ai","name":"人工智能"},{"id":"software","name":"软件与编程"},{"id":"hardware","name":"硬件与网络"},{"id":"data","name":"数据与可视化"}]},
+    {"id":"sports-health","name":"运动与健康","description":"运动、身体与户外生活","children":[{"id":"sports","name":"运动与训练"},{"id":"health","name":"健康知识"},{"id":"outdoors","name":"户外与休闲"}]},
+    {"id":"work","name":"工作与商业","description":"关于产品、组织和做事方法","children":[{"id":"products","name":"行业与产品"},{"id":"management","name":"经营与管理"},{"id":"productivity","name":"职业与效率"}]},
+    {"id":"education","name":"学习与教育","description":"让知识更好理解、记住与传递","children":[{"id":"subjects","name":"学科知识"},{"id":"languages","name":"语言学习"},{"id":"study","name":"学习方法"},{"id":"teaching","name":"教学资源"}]}
+  ]
+}

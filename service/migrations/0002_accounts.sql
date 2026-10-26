@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS accounts(id TEXT PRIMARY KEY,publisher_id TEXT NOT NULL UNIQUE REFERENCES publishers(id),phone TEXT NOT NULL UNIQUE,email TEXT UNIQUE,created INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS login_sessions(token_hash TEXT PRIMARY KEY,account_id TEXT NOT NULL REFERENCES accounts(id),created INTEGER NOT NULL,expires INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS sessions_account ON login_sessions(account_id);
+CREATE TABLE IF NOT EXISTS api_keys(id TEXT PRIMARY KEY,publisher_id TEXT NOT NULL REFERENCES publishers(id),name TEXT NOT NULL,token_hash TEXT NOT NULL UNIQUE,prefix TEXT NOT NULL,scope TEXT NOT NULL,created INTEGER NOT NULL,expires INTEGER NOT NULL,revoked INTEGER NOT NULL DEFAULT 0,last_used INTEGER);
+CREATE INDEX IF NOT EXISTS keys_owner ON api_keys(publisher_id,created);
+CREATE TABLE IF NOT EXISTS auth_challenges(id TEXT PRIMARY KEY,channel TEXT NOT NULL,purpose TEXT NOT NULL,subject TEXT NOT NULL,account_id TEXT,code_hash TEXT,created INTEGER NOT NULL,expires INTEGER NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,used INTEGER NOT NULL DEFAULT 0,ready INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX IF NOT EXISTS challenges_subject ON auth_challenges(subject,created);
+CREATE TABLE IF NOT EXISTS auth_limits(key TEXT PRIMARY KEY,n INTEGER NOT NULL,expires INTEGER NOT NULL);

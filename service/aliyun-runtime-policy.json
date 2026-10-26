@@ -1,0 +1,14 @@
+{
+  "Version": "1",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "dypns:SendSmsVerifyCode",
+        "dypns:CheckSmsVerifyCode",
+        "dm:SingleSendMail"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

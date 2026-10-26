@@ -1,0 +1,753 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TexoPub.ai 个人空间与发布 API",
+    "version": "2.0.0",
+    "description": " 托管网页自动分配 https://content.texopub.com/p/{public_slug}/ 短地址；同名自动加后缀，更新和下架不释放名称。使用发布结果的url，不自行拼接。"
+  },
+  "servers": [
+    {
+      "url": "https://commonplace-api.ivanliyuanning123.workers.dev"
+    }
+  ],
+  "security": [
+    {
+      "publisherToken": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "publisherToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "用户在个人空间创建的只读或发布密钥，含有效期，可独立撤销；兼容旧邀请凭证。不得使用短信验证码或云平台密钥。"
+      }
+    }
+  },
+  "paths": {
+    "/v1/categories": {
+      "get": {
+        "security": [],
+        "summary": "分类与上传限制",
+        "responses": {
+          "200": {
+            "description": "JSON"
+          }
+        }
+      }
+    },
+    "/v1/catalog": {
+      "get": {
+        "security": [],
+        "summary": "公开作品目录",
+        "responses": {
+          "200": {
+            "description": "JSON"
+          }
+        },
+        "description": "本站托管作品与外部收录统一返回；source=external的url直接指向原站，author为收录者，link_status不表示平台自动探测。旧案例可省略source。"
+      }
+    },
+    "/v1/materials": {
+      "get": {
+        "security": [],
+        "summary": "公开素材目录",
+        "responses": {
+          "200": {
+            "description": "JSON"
+          }
+        }
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "summary": "身份、额度和自己的作品",
+        "responses": {
+          "200": {
+            "description": "JSON"
+          },
+          "401": {
+            "description": "缺少或撤销凭证"
+          }
+        }
+      }
+    },
+    "/v1/works/{id}": {
+      "get": {
+        "security": [],
+        "summary": "公开作品元数据与当前版本",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON"
+          }
+        }
+      }
+    },
+    "/v1/uploads": {
+      "post": {
+        "summary": "新建托管网页、独立素材或外部网站图标上传会话",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "slug",
+                  "title",
+                  "files"
+                ],
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "work",
+                      "asset"
+                    ],
+                    "default": "work"
+                  },
+                  "slug": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                  },
+                  "title": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "summary": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "category_id": {
+                    "type": "string",
+                    "description": "网页必填，来自GET /v1/categories的二级分类ID"
+                  },
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "guide",
+                      "article",
+                      "report",
+                      "tutorial",
+                      "tool",
+                      "visualization",
+                      "portfolio"
+                    ]
+                  },
+                  "icon": {
+                    "type": "string",
+                    "description": "网页必填，清单内专属图标路径"
+                  },
+                  "entry": {
+                    "type": "string",
+                    "default": "index.html"
+                  },
+                  "cover": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "maxItems": 12,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 40
+                    }
+                  },
+                  "license": {
+                    "type": "string",
+                    "default": "未声明开放许可"
+                  },
+                  "work_id": {
+                    "type": "string",
+                    "description": "更新作品时必填"
+                  },
+                  "expected_version": {
+                    "type": "string",
+                    "description": "更新作品时必填，来自上次发布返回值"
+                  },
+                  "files": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 250,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "path",
+                        "bytes",
+                        "sha256"
+                      ],
+                      "properties": {
+                        "path": {
+                          "type": "string"
+                        },
+                        "bytes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 26214400
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        }
+                      }
+                    }
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "hosted",
+                      "external"
+                    ],
+                    "default": "hosted",
+                    "description": "外部收录不上传或托管原站HTML，仅上传一份专属图标"
+                  },
+                  "external_url": {
+                    "type": "string",
+                    "format": "uri",
+                    "maxLength": 2048,
+                    "description": "source=external时必填，公开HTTPS域名网址；不含登录凭证、本机IP或自定义端口。保留片段但去片段后去重。"
+                  },
+                  "link_status": {
+                    "type": "string",
+                    "enum": [
+                      "unchecked",
+                      "unavailable"
+                    ],
+                    "default": "unchecked",
+                    "description": "收录者标记，平台不自动探测外站；unavailable为可能失效"
+                  },
+                  "visibility": {
+                    "type": "string",
+                    "enum": [
+                      "private",
+                      "public"
+                    ],
+                    "default": "private",
+                    "description": "仅独立素材使用；默认私有，公开必须获用户明确授权。网页依赖随网页公开。"
+                  },
+                  "listing": {
+                    "type": "string",
+                    "enum": [
+                      "unlisted",
+                      "profile",
+                      "public"
+                    ],
+                    "description": "不展示 / 仅个人主页 / 公开展示。仅控制公开列表收录，链接均可访问。新作品使用空间默认值，更新省略保持原值。"
+                  }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "source": {
+                          "const": "external"
+                        }
+                      },
+                      "required": [
+                        "source"
+                      ]
+                    },
+                    "then": {
+                      "required": [
+                        "external_url",
+                        "category_id",
+                        "icon"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "work"
+                        },
+                        "files": {
+                          "maxItems": 1
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "kind": {
+                          "const": "work"
+                        }
+                      }
+                    },
+                    "then": {
+                      "required": [
+                        "category_id",
+                        "icon"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "上传会话，包含upload_id、work_id、content_base、files[].upload_path与commit_path"
+          },
+          "200": {
+            "description": "幂等重试返回原会话"
+          },
+          "409": {
+            "description": "版本、幂等键或重复外部网址冲突；草稿未公开"
+          },
+          "413": {
+            "description": "额度或大小超限"
+          }
+        }
+      }
+    },
+    "/v1/uploads/{id}/files/{path}": {
+      "put": {
+        "summary": "按清单上传单文件，大小与SHA256必须匹配",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Content-Length",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ready=true"
+          },
+          "422": {
+            "description": "文件校验或图标校验失败"
+          }
+        }
+      }
+    },
+    "/v1/uploads/{id}/commit": {
+      "post": {
+        "summary": "文件全部就绪后原子切换公开版本、加入导航",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "published=true及work.url、id、version"
+          },
+          "200": {
+            "description": "幂等完成"
+          },
+          "409": {
+            "description": "文件未齐、会话过期或并发版本冲突"
+          }
+        }
+      }
+    },
+    "/v1/works/{id}/withdraw": {
+      "post": {
+        "summary": "所属发布者移除自己的外部网站收录，不影响原站",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "expected_version"
+                ],
+                "properties": {
+                  "expected_version": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "已移除（重复相同操作返回相同结果）"
+          },
+          "400": {
+            "description": "仅允许外部收录"
+          },
+          "404": {
+            "description": "不属于当前身份或不存在"
+          },
+          "409": {
+            "description": "版本已变化"
+          }
+        }
+      }
+    },
+    "/v1/me/works": {
+      "get": {
+        "summary": "仅所属身份的作品及私有素材记录",
+        "responses": {
+          "200": {
+            "description": "所属身份的资源，私有文件不缓存"
+          },
+          "401": {
+            "description": "密钥失效或未登录"
+          },
+          "404": {
+            "description": "不存在或不属于当前身份"
+          }
+        }
+      }
+    },
+    "/v1/me/materials": {
+      "get": {
+        "summary": "仅所属身份的素材文件清单",
+        "responses": {
+          "200": {
+            "description": "所属身份的资源，私有文件不缓存"
+          },
+          "401": {
+            "description": "密钥失效或未登录"
+          },
+          "404": {
+            "description": "不存在或不属于当前身份"
+          }
+        }
+      }
+    },
+    "/v1/me/assets/{work_id}": {
+      "get": {
+        "summary": "读取所属身份的独立素材（稳定地址）",
+        "responses": {
+          "200": {
+            "description": "所属身份的资源，私有文件不缓存"
+          },
+          "401": {
+            "description": "密钥失效或未登录"
+          },
+          "404": {
+            "description": "不存在或不属于当前身份"
+          }
+        }
+      }
+    },
+    "/v1/me/files/{version_id}/{path}": {
+      "get": {
+        "summary": "下载所属身份的版本文件",
+        "responses": {
+          "200": {
+            "description": "所属身份的资源，私有文件不缓存"
+          },
+          "401": {
+            "description": "密钥失效或未登录"
+          },
+          "404": {
+            "description": "不存在或不属于当前身份"
+          }
+        }
+      }
+    },
+    "/v1/profiles/{publisher_id}": {
+      "get": {
+        "summary": "仅用户主动公开后可读的创作者主页；未公开返回404，不含联系方式或私有素材",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "公开名称及作品"
+          }
+        }
+      }
+    },
+    "/v1/me/works/{id}/archive": {
+      "post": {
+        "summary": "归档自己的托管网页或独立素材，或移除外部收录",
+        "description": "保留历史与配额；归档后关闭访问并退出目录。须提供当前版本。",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "expected_version"
+                ],
+                "properties": {
+                  "expected_version": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "已归档"
+          },
+          "404": {
+            "description": "条目不存在或不属于此身份"
+          },
+          "409": {
+            "description": "版本冲突"
+          }
+        }
+      }
+    },
+    "/v1/me/works/{work_id}/delete": {
+      "post": {
+        "summary": "永久删除本人内容、全部历史版本和独占文件；deleted=false时继续相同请求直到deleted=true，完成才释放额度，短名保留",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expected_version": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "本人当前version；草稿为null"
+                  },
+                  "confirm": {
+                    "type": "boolean",
+                    "const": true
+                  }
+                },
+                "required": [
+                  "expected_version",
+                  "confirm"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "操作结果"
+          },
+          "409": {
+            "description": "版本/修订冲突或正在处理，请刷新或重试"
+          }
+        }
+      }
+    },
+    "/v1/me/works/{work_id}/listing": {
+      "post": {
+        "summary": "修改本人作品展示范围，保留网址和当前内容版本",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expected_version": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "本人当前version；草稿为null"
+                  },
+                  "expected_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "listing": {
+                    "type": "string",
+                    "enum": [
+                      "unlisted",
+                      "profile",
+                      "public"
+                    ],
+                    "description": "不展示 / 仅个人主页 / 公开展示。仅控制公开列表收录，链接均可访问。新作品使用空间默认值，更新省略保持原值。"
+                  }
+                },
+                "required": [
+                  "expected_version",
+                  "listing"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "操作结果"
+          },
+          "409": {
+            "description": "版本/修订冲突或正在处理，请刷新或重试"
+          }
+        }
+      }
+    },
+    "/v1/me/preferences": {
+      "post": {
+        "summary": "修改以后新作品默认展示范围，不改已有作品或主页开关",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "default_listing": {
+                    "type": "string",
+                    "enum": [
+                      "unlisted",
+                      "profile",
+                      "public"
+                    ],
+                    "description": "不展示 / 仅个人主页 / 公开展示。仅控制公开列表收录，链接均可访问。新作品使用空间默认值，更新省略保持原值。"
+                  }
+                },
+                "required": [
+                  "default_listing"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "已保存"
+          }
+        }
+      }
+    },
+    "/v1/me/works/{work_id}": {
+      "get": {
+        "summary": "读取本人作品/草稿/归档及删除状态、当前版本和revision",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "作品状态"
+          },
+          "404": {
+            "description": "不存在或不属于本人"
+          }
+        }
+      }
+    }
+  },
+  "x-browser-account-api": {
+    "base": "https://texopub.com/api/v1",
+    "authentication": "Secure HttpOnly SameSite=Lax cookie; mutation requires exact Origin and X-TexoPub-Request: space; Bearer keys cannot manage browser account",
+    "routes": [
+      "auth/status",
+      "auth/challenge",
+      "auth/verify",
+      "account",
+      "account/keys",
+      "account/keys/{id}/revoke",
+      "account/profile",
+      "account/logout",
+      "account/logout-all",
+      "account/import",
+      "account/legacy-key/revoke",
+      "account/keys/{id}/expiry"
+    ],
+    "note": "SMS/email codes are entered by the user in the browser. Never request them from an AI conversation."
+  }
+}

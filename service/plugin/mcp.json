@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "texopub": {
+      "type": "streamable-http",
+      "url": "https://texopub.com/api/mcp"
+    }
+  }
+}

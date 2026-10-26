@@ -1,0 +1,58 @@
+PRAGMA foreign_keys=ON;
+CREATE TABLE IF NOT EXISTS publishers (
+ id TEXT PRIMARY KEY, name TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE,
+ revoked INTEGER NOT NULL DEFAULT 0, quota_bytes INTEGER NOT NULL DEFAULT 536870912,
+ daily_uploads INTEGER NOT NULL DEFAULT 20, created INTEGER NOT NULL,
+ default_listing TEXT NOT NULL DEFAULT 'public' CHECK(default_listing IN ('unlisted','profile','public'))
+);
+CREATE TABLE IF NOT EXISTS works (
+ id TEXT PRIMARY KEY, publisher_id TEXT NOT NULL REFERENCES publishers(id), slug TEXT NOT NULL,
+ kind TEXT NOT NULL CHECK(kind IN ('work','asset')), current_version TEXT,
+ status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','published','hidden')),
+ metadata TEXT NOT NULL DEFAULT '{}', created INTEGER NOT NULL, updated INTEGER NOT NULL, public_slug TEXT,
+ listing TEXT NOT NULL DEFAULT 'public' CHECK(listing IN ('unlisted','profile','public')),
+ revision INTEGER NOT NULL DEFAULT 0, deleted_at INTEGER, delete_complete INTEGER NOT NULL DEFAULT 0, deletion_version TEXT, delete_bytes INTEGER NOT NULL DEFAULT 0,
+ UNIQUE(publisher_id,slug)
+);
+CREATE TABLE IF NOT EXISTS versions (
+ id TEXT PRIMARY KEY, publisher_id TEXT NOT NULL REFERENCES publishers(id),
+ work_id TEXT NOT NULL REFERENCES works(id), idem TEXT NOT NULL, request_hash TEXT NOT NULL,
+ base_version TEXT, base_revision INTEGER NOT NULL DEFAULT 0, metadata TEXT NOT NULL, total_bytes INTEGER NOT NULL,
+ state TEXT NOT NULL DEFAULT 'draft' CHECK(state IN ('draft','published')),
+ created INTEGER NOT NULL, expires INTEGER NOT NULL, UNIQUE(publisher_id,idem)
+);
+CREATE TABLE IF NOT EXISTS files (
+ version_id TEXT NOT NULL REFERENCES versions(id), path TEXT NOT NULL,
+ mime TEXT NOT NULL, bytes INTEGER NOT NULL, sha256 TEXT NOT NULL,
+ object_key TEXT, stored_bytes INTEGER, ready INTEGER NOT NULL DEFAULT 0,
+ PRIMARY KEY(version_id,path)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS works_public_slug_unique ON works(public_slug) WHERE public_slug IS NOT NULL;
+CREATE INDEX IF NOT EXISTS works_published ON works(status,updated DESC);
+CREATE INDEX IF NOT EXISTS versions_owner ON versions(publisher_id,created);
+CREATE TRIGGER IF NOT EXISTS enforce_upload_quota BEFORE INSERT ON versions BEGIN
+ SELECT CASE WHEN NEW.total_bytes + COALESCE((SELECT SUM(total_bytes) FROM versions WHERE publisher_id=NEW.publisher_id),0) > (SELECT quota_bytes FROM publishers WHERE id=NEW.publisher_id) THEN RAISE(ABORT,'quota_exceeded') END;
+ SELECT CASE WHEN (SELECT COUNT(*) FROM versions WHERE publisher_id=NEW.publisher_id AND created>NEW.created-86400) >= (SELECT daily_uploads FROM publishers WHERE id=NEW.publisher_id) THEN RAISE(ABORT,'rate_limited') END;
+END;
+CREATE UNIQUE INDEX IF NOT EXISTS works_external_url_unique ON works(json_extract(metadata,'$.external_key')) WHERE status='published' AND json_extract(metadata,'$.source')='external';
+
+CREATE TABLE IF NOT EXISTS accounts(id TEXT PRIMARY KEY,publisher_id TEXT NOT NULL UNIQUE REFERENCES publishers(id),phone TEXT NOT NULL UNIQUE,email TEXT UNIQUE,created INTEGER NOT NULL,profile_public INTEGER NOT NULL DEFAULT 0 CHECK(profile_public IN (0,1)));
+CREATE TABLE IF NOT EXISTS login_sessions(token_hash TEXT PRIMARY KEY,account_id TEXT NOT NULL REFERENCES accounts(id),created INTEGER NOT NULL,expires INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS sessions_account ON login_sessions(account_id);
+CREATE TABLE IF NOT EXISTS api_keys(id TEXT PRIMARY KEY,publisher_id TEXT NOT NULL REFERENCES publishers(id),name TEXT NOT NULL,token_hash TEXT NOT NULL UNIQUE,prefix TEXT NOT NULL,scope TEXT NOT NULL,created INTEGER NOT NULL,expires INTEGER NOT NULL,revoked INTEGER NOT NULL DEFAULT 0,last_used INTEGER);
+CREATE INDEX IF NOT EXISTS keys_owner ON api_keys(publisher_id,created);
+CREATE TABLE IF NOT EXISTS auth_challenges(id TEXT PRIMARY KEY,channel TEXT NOT NULL,purpose TEXT NOT NULL,subject TEXT NOT NULL,account_id TEXT,code_hash TEXT,created INTEGER NOT NULL,expires INTEGER NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,used INTEGER NOT NULL DEFAULT 0,ready INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX IF NOT EXISTS challenges_subject ON auth_challenges(subject,created);
+CREATE TABLE IF NOT EXISTS auth_limits(key TEXT PRIMARY KEY,n INTEGER NOT NULL,expires INTEGER NOT NULL);
+
+CREATE TABLE IF NOT EXISTS oauth_clients(id TEXT PRIMARY KEY,name TEXT NOT NULL,redirects TEXT NOT NULL,created INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS oauth_pending(hash TEXT PRIMARY KEY,session_hash TEXT NOT NULL,request TEXT NOT NULL,expires INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS oauth_codes(hash TEXT PRIMARY KEY,publisher_id TEXT NOT NULL REFERENCES publishers(id),client_id TEXT NOT NULL,redirect_uri TEXT NOT NULL,challenge TEXT NOT NULL,scope TEXT NOT NULL,state TEXT NOT NULL,expires INTEGER NOT NULL,used INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS oauth_grants(id TEXT PRIMARY KEY,publisher_id TEXT NOT NULL REFERENCES publishers(id),client_id TEXT NOT NULL,name TEXT NOT NULL,scope TEXT NOT NULL,created INTEGER NOT NULL,expires INTEGER NOT NULL,revoked INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX IF NOT EXISTS oauth_grants_owner ON oauth_grants(publisher_id,created);
+CREATE TABLE IF NOT EXISTS oauth_tokens(access_hash TEXT PRIMARY KEY,refresh_hash TEXT NOT NULL UNIQUE,grant_id TEXT NOT NULL REFERENCES oauth_grants(id),expires INTEGER NOT NULL,refresh_expires INTEGER NOT NULL,refresh_used INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX IF NOT EXISTS oauth_tokens_grant ON oauth_tokens(grant_id);
+
+CREATE INDEX IF NOT EXISTS files_objects ON files(object_key);
+CREATE TABLE IF NOT EXISTS work_operations(work_id TEXT PRIMARY KEY REFERENCES works(id), token TEXT NOT NULL, expires INTEGER NOT NULL);
+CREATE TRIGGER IF NOT EXISTS reject_deleted_upload BEFORE INSERT ON versions WHEN EXISTS(SELECT 1 FROM works WHERE id=NEW.work_id AND deleted_at IS NOT NULL) BEGIN SELECT RAISE(ABORT,'work_deleted'); END;
