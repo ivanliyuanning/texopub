@@ -571,6 +571,11 @@ def community_site(root, site):
     html = (root / 'templates/community/index.html').read_text()
     loading_source = (target / 'loading.mjs').read_text().removeprefix('export const loadingMarkup = ').strip().removesuffix(';')
     html = html.replace('<!-- COMMUNITY_LOADING -->', json.loads(loading_source))
+    loading_version = digest((target / 'loading.mjs').read_bytes())[:12]
+    app = target / 'app.mjs'
+    app.write_text(app.read_text().replace("'./loading.mjs'", "'./loading.mjs?v=" + loading_version + "'"))
+    style_version = digest((target / 'style.css').read_bytes())[:12]
+    html = html.replace('/community/style.css', '/community/style.css?v=' + style_version)
     version = digest((target / 'app.mjs').read_bytes())[:12]
     html = html.replace('/community/app.mjs', '/community/app.mjs?v=' + version)
     routes = ['', 'materials', 'publish', 'for-ai', 'space', 'space/works', 'space/materials',
