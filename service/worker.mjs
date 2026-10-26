@@ -1,3 +1,4 @@
+import {CommunityError,getProfile,updateProfile,upsertPartner,prepareContributors,enrichWorks,publicProfile,avatarSvg} from './community.mjs';
 import {oauthRoutes} from './mcp-oauth.mjs';
 import {mcpRoute} from './mcp.mjs';
 import {accountRoutes,publisherAuth,AccountError} from './accounts.mjs';
@@ -78,6 +79,8 @@ async function createUpload(request,env,p){
  if(work){if(!body.work_id)fail(409,'同slug已存在；更新时提供work_id和expected_version');if(work.deleted_at||work.kind!==kind||work.status==='hidden'||(JSON.parse(work.metadata).source||'hosted')!==source)fail(403,'作品类型不同或已下架；不能把托管作品改成外部收录');if((body.expected_version||null)!==work.current_version)fail(409,'作品版本已变化，请读取最新版本后更新');}
  // Legacy aliases are trusted migration metadata and cannot be supplied by clients.
  if(work){const previous=JSON.parse(work.metadata);for(const k of ['legacy_id','legacy_initial_version'])if(previous[k])metadata[k]=previous[k];}
+ const contributors=kind==='work'?await prepareContributors(env,p,body.ai_partners,work?JSON.parse(work.metadata):null):{items:[],statements:[]};
+ if(kind==='work'){metadata.ai_partners=contributors.items;metadata.cover_strategy=metadata.cover_path?'uploaded':'typographic-v1';}
  const selectedListing=kind==='work'?listing(body.listing??work?.listing??p.default_listing??(await first(env,'SELECT default_listing FROM publishers WHERE id=?',p.id)).default_listing):'public';
  if(kind==='work')metadata.listing=selectedListing;
  const workId=work?.id||id(), version=id(), created=now();
@@ -87,7 +90,7 @@ async function createUpload(request,env,p){
  for(let attempt=0;attempt<16;attempt++){
   const publicSlug=!work&&kind==='work'&&source==='hosted'?shortCandidate(slug,workId,attempt):null;
   if(publicSlug&&await first(env,'SELECT id FROM works WHERE public_slug=?',publicSlug))continue;
-  const commands=[];
+  const commands=[...contributors.statements];
   if(!work)commands.push(stmt(env,'INSERT INTO works(id,publisher_id,slug,kind,created,updated,public_slug,listing) VALUES(?,?,?,?,?,?,?,?)',workId,p.id,slug,kind,created,created,publicSlug,selectedListing));
  commands.push(stmt(env,'INSERT INTO versions(id,publisher_id,work_id,idem,request_hash,base_version,base_revision,metadata,total_bytes,created,expires) VALUES(?,?,?,?,?,?,?,?,?,?,?)',version,p.id,workId,idem,requestHash,work?.current_version||null,work?.revision||0,JSON.stringify(metadata),reserved,created,created+86400));
  commands.push(stmt(env,"INSERT INTO files(version_id,path,mime,bytes,sha256) SELECT ?,json_extract(value,'$.path'),json_extract(value,'$.mime'),json_extract(value,'$.bytes'),json_extract(value,'$.sha256') FROM json_each(?)",version,JSON.stringify(files.map(f=>({...f,mime:MIME[f.path.split('.').pop().toLowerCase()]})))));
@@ -204,11 +207,12 @@ async function route(request,env,authenticatedPublisher=null){
  if(url.pathname==='/mcp')return mcpRoute(request,env,(r,e,p)=>safeRoute(r,e,p));
  const oauth=await oauthRoutes(request,env,url);if(oauth)return oauth;
  const accountResponse=await accountRoutes(request,env,url);if(accountResponse)return accountResponse;
+ const avatarMatch=url.pathname.match(/^\/v1\/avatars\/(human|ai)\/([a-f0-9]{32})\.svg$/);if(avatarMatch&&['GET','HEAD'].includes(request.method))return new Response(request.method==='HEAD'?null:avatarSvg(avatarMatch[2],avatarMatch[1]),{headers:{...CORS,'Content-Type':'image/svg+xml','Cache-Control':'public,max-age=86400','Content-Security-Policy':"default-src 'none'; sandbox"}});
  if(url.pathname==='/health')return response({ok:true,service:'commonplace-api',version:2});
  if(url.pathname==='/v1/categories'&&request.method==='GET')return response({...taxonomy,formats:FORMATS,listings:LISTINGS,limits:{file_bytes:MAX_FILE,total_bytes:MAX_TOTAL,files:MAX_FILES,html_bytes:2*1024*1024}});
- if(url.pathname.match(/^\/v1\/profiles\/[a-f0-9]{32}$/)&&request.method==='GET'){const pid=url.pathname.split('/').pop(),p=await first(env,'SELECT p.name FROM publishers p JOIN accounts a ON a.publisher_id=p.id WHERE p.id=? AND p.revoked=0 AND a.profile_public=1',pid);if(!p)fail(404,'主页未公开或不存在');return response({publisher_id:pid,name:p.name,items:(await rows(env,"SELECT * FROM works WHERE publisher_id=? AND status='published' AND kind='work' AND listing IN ('profile','public') ORDER BY updated DESC",pid)).map(w=>publicWork(env,w))});}
+ if(url.pathname.match(/^\/v1\/profiles\/[a-f0-9]{32}$/)&&request.method==='GET'){const pid=url.pathname.split('/').pop();return response(await publicProfile(env,pid,(await rows(env,"SELECT * FROM works WHERE publisher_id=? AND status='published' AND kind='work' AND listing IN ('profile','public') ORDER BY updated DESC",pid)).map(w=>publicWork(env,w))));}
  if(url.pathname==='/v1/catalog'&&request.method==='GET'){
-  const list=await rows(env,"SELECT * FROM works WHERE status='published' AND kind='work' AND listing='public' ORDER BY updated DESC LIMIT 1000"),migrated=new Set((await rows(env,"SELECT json_extract(metadata,'$.legacy_id') AS legacy_id FROM works WHERE json_extract(metadata,'$.legacy_id') IS NOT NULL")).map(w=>w.legacy_id));return response({schema_version:5,title:'TexoPub.ai',items:[...legacy.works.filter(w=>!migrated.has(w.id)),...list.map(w=>publicWork(env,w))].sort((a,b)=>b.updated.localeCompare(a.updated))});
+  const list=await rows(env,"SELECT * FROM works WHERE status='published' AND kind='work' AND listing='public' ORDER BY updated DESC LIMIT 1000"),migrated=new Set((await rows(env,"SELECT json_extract(metadata,'$.legacy_id') AS legacy_id FROM works WHERE json_extract(metadata,'$.legacy_id') IS NOT NULL")).map(w=>w.legacy_id));return response({schema_version:5,title:'TexoPub.ai',items:[...legacy.works.filter(w=>!migrated.has(w.id)),...await enrichWorks(env,list.map(w=>publicWork(env,w)))].sort((a,b)=>b.updated.localeCompare(a.updated))});
  }
  if(url.pathname==='/v1/materials'&&request.method==='GET'){
   const list=await rows(env,"SELECT f.*,w.publisher_id,w.metadata,w.id AS work_id FROM files f JOIN versions v ON v.id=f.version_id JOIN works w ON w.current_version=v.id WHERE w.status='published' AND json_extract(w.metadata,'$.legacy_id') IS NULL AND COALESCE(json_extract(w.metadata,'$.source'),'hosted')!='external' AND (w.kind!='asset' OR COALESCE(json_extract(w.metadata,'$.visibility'),'public')='public') AND (w.kind!='work' OR w.listing='public') AND f.mime NOT LIKE 'text/html%' AND f.mime NOT LIKE '%javascript%' AND f.mime NOT LIKE 'text/css%' LIMIT 2000");
@@ -216,7 +220,7 @@ async function route(request,env,authenticatedPublisher=null){
   return response({items:[...(legacyState&&(legacyState.status!=='published'||legacyState.listing!=='public')?[]:legacy.assets),...list.map(f=>({id:f.version_id+'/'+f.path,name:f.path.split('/').pop(),title:f.path.split('/').pop(),collection:JSON.parse(f.metadata).title,mime:f.mime,bytes:f.bytes,url:versionBase(env,f.version_id)+encoded(f.path),publisher_id:f.publisher_id}))]});
  }
  const publicId=url.pathname.match(/^\/v1\/works\/([a-f0-9]{32})$/);
- if(publicId&&request.method==='GET'){const w=await first(env,"SELECT * FROM works WHERE id=? AND status='published' AND (kind!='asset' OR COALESCE(json_extract(metadata,'$.visibility'),'public')='public')",publicId[1]);if(!w)fail(404,'作品不存在');return response(publicWork(env,w));}
+ if(publicId&&request.method==='GET'){const w=await first(env,"SELECT * FROM works WHERE id=? AND status='published' AND (kind!='asset' OR COALESCE(json_extract(metadata,'$.visibility'),'public')='public')",publicId[1]);if(!w)fail(404,'作品不存在');return response((await enrichWorks(env,[publicWork(env,w)]))[0]);}
  if(url.pathname.startsWith('/v1/admin/')){
   await auth(request,env,true);
   if(url.pathname==='/v1/admin/publishers'&&request.method==='POST'){
@@ -228,11 +232,23 @@ async function route(request,env,authenticatedPublisher=null){
   fail(404,'管理接口不存在');
  }
  const p=authenticatedPublisher||await auth(request,env);
+ if(url.pathname==='/v1/me/profile'&&request.method==='GET')return response(await getProfile(env,p));
+ if(url.pathname==='/v1/me/profile'&&request.method==='POST')return response(await updateProfile(env,p,await json(request)));
+ if(url.pathname==='/v1/me/ai-partners'&&request.method==='GET')return response({items:(await getProfile(env,p)).ai_partners});
+ if(url.pathname==='/v1/me/ai-partners'&&request.method==='POST')return response(await upsertPartner(env,p,await json(request)));
  if(url.pathname==='/v1/me/preferences'&&request.method==='POST'){const b=await json(request),value=listing(b.default_listing);await stmt(env,'UPDATE publishers SET default_listing=? WHERE id=?',value,p.id).run();return response({default_listing:value});}
  const ownId=url.pathname.match(/^\/v1\/me\/works\/([a-f0-9]{32})$/);
- if(ownId&&request.method==='GET'){const w=await first(env,'SELECT * FROM works WHERE id=? AND publisher_id=?',ownId[1],p.id);if(!w)fail(404,'内容不存在或不属于当前空间');return response({...publicWork(env,w),status:w.status,kind:w.kind});}
+ if(ownId&&request.method==='GET'){const w=await first(env,'SELECT * FROM works WHERE id=? AND publisher_id=?',ownId[1],p.id);if(!w)fail(404,'内容不存在或不属于当前空间');return response({...((await enrichWorks(env,[publicWork(env,w)]))[0]),status:w.status,kind:w.kind});}
  const deletion=url.pathname.match(/^\/v1\/me\/works\/([a-f0-9]{32})\/delete$/);
  if(deletion&&request.method==='POST')return response(await deleteWork(env,p,deletion[1],await json(request)));
+ const visibility=url.pathname.match(/^\/v1\/me\/works\/([a-f0-9]{32})\/visibility$/);
+ if(visibility&&request.method==='POST'){
+  const b=await json(request);if(!['private','public'].includes(b.visibility))fail(400,'素材权限需要private或public');
+  const w=await first(env,"SELECT * FROM works WHERE id=? AND publisher_id=? AND kind='asset' AND status='published' AND deleted_at IS NULL",visibility[1],p.id);if(!w)fail(404,'独立素材不存在或不属于当前空间');
+  if(b.expected_version!==w.current_version||b.expected_revision!==w.revision)fail(409,'素材已变化，请重新读取');
+  const result=await env.DB.batch([stmt(env,"UPDATE works SET metadata=json_set(metadata,'$.visibility',?),revision=revision+1,updated=? WHERE id=? AND publisher_id=? AND current_version=? AND revision=? AND deleted_at IS NULL",b.visibility,now(),w.id,p.id,b.expected_version,b.expected_revision),stmt(env,"UPDATE versions SET metadata=json_set(metadata,'$.visibility',?) WHERE id=? AND work_id=? AND publisher_id=? AND changes()=1",b.visibility,w.current_version,w.id,p.id)]);
+  if(!result[0].meta.changes)fail(409,'素材已变化，请重新读取');const metadata={...JSON.parse(w.metadata),visibility:b.visibility};return response({...publicWork(env,{...w,metadata:JSON.stringify(metadata),revision:w.revision+1}),status:w.status,kind:w.kind});
+ }
  const showListing=url.pathname.match(/^\/v1\/me\/works\/([a-f0-9]{32})\/listing$/);
  if(showListing&&request.method==='POST'){
   const b=await json(request),value=listing(b.listing),w=await first(env,"SELECT * FROM works WHERE id=? AND publisher_id=? AND kind='work' AND deleted_at IS NULL",showListing[1],p.id);
@@ -260,12 +276,12 @@ async function route(request,env,authenticatedPublisher=null){
   const relative=path(decodeURIComponent(privateFile[2]));const f=await first(env,"SELECT f.* FROM files f JOIN versions v ON v.id=f.version_id JOIN works w ON w.id=v.work_id WHERE f.version_id=? AND f.path=? AND w.publisher_id=? AND f.ready=1 AND v.state='published' AND w.status='published'",privateFile[1],relative,p.id);if(!f)fail(404,'素材不存在或不属于当前空间');
   const obj=await env.FILES.get(f.object_key);if(!obj)fail(404,'素材暂时不可用');return new Response(request.method==='HEAD'?null:obj.body,{headers:{'Content-Type':f.mime,'Cache-Control':'private,no-store','X-Content-Type-Options':'nosniff','Content-Disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(relative.split('/').pop()),'Content-Security-Policy':"sandbox; default-src 'none'; frame-ancestors 'none'"}});
  }
- if(url.pathname==='/v1/me/works'&&request.method==='GET')return response({items:(await rows(env,'SELECT * FROM works WHERE publisher_id=? AND delete_complete=0 ORDER BY updated DESC LIMIT 1000',p.id)).map(w=>({...publicWork(env,w),status:w.status,kind:w.kind}))});
+ if(url.pathname==='/v1/me/works'&&request.method==='GET')return response({items:await enrichWorks(env,(await rows(env,'SELECT * FROM works WHERE publisher_id=? AND delete_complete=0 ORDER BY updated DESC LIMIT 1000',p.id)).map(w=>({...publicWork(env,w),status:w.status,kind:w.kind})))});
  if(url.pathname==='/v1/me'&&request.method==='GET'){const usage=await first(env,'SELECT COALESCE(SUM(total_bytes),0) AS reserved_bytes FROM versions WHERE publisher_id=?',p.id);return response({publisher_id:p.id,name:p.name,quota_bytes:p.quota_bytes,...usage,default_listing:(await first(env,'SELECT default_listing FROM publishers WHERE id=?',p.id)).default_listing,works:await rows(env,'SELECT id,slug,current_version,status,listing,revision,deleted_at FROM works WHERE publisher_id=? AND delete_complete=0',p.id)});}
  if(url.pathname==='/v1/uploads'&&request.method==='POST')return createUpload(request,env,p);
  const file=url.pathname.match(/^\/v1\/uploads\/([a-f0-9]{32})\/files\/(.+)$/);if(file&&request.method==='PUT')return uploadFile(request,env,p,file[1],path(decodeURIComponent(file[2])));
  const finish=url.pathname.match(/^\/v1\/uploads\/([a-f0-9]{32})\/commit$/);if(finish&&request.method==='POST')return commit(env,p,finish[1]);
  fail(404,'接口不存在');
 }
-async function safeRoute(request,env,p=null){try{return await route(request,env,p);}catch(error){if(error instanceof Failure||error instanceof AccountError)return response({error:error.message},error.status);return response({error:'服务暂时不可用，请保留上传会话并重试'},503);}}
+async function safeRoute(request,env,p=null){try{return await route(request,env,p);}catch(error){if(error instanceof Failure||error instanceof AccountError||error instanceof CommunityError)return response({error:error.message},error.status);return response({error:'服务暂时不可用，请保留上传会话并重试'},503);}}
 export default {fetch(request,env){return safeRoute(request,env);}};

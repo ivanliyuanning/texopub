@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "TexoPub.ai 个人空间与发布 API",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": " 托管网页自动分配 https://content.texopub.com/p/{public_slug}/ 短地址；同名自动加后缀，更新和下架不释放名称。使用发布结果的url，不自行拼接。"
   },
   "servers": [
@@ -254,6 +254,46 @@
                       "public"
                     ],
                     "description": "不展示 / 仅个人主页 / 公开展示。仅控制公开列表收录，链接均可访问。新作品使用空间默认值，更新省略保持原值。"
+                  },
+                  "ai_partners": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+                          "maxLength": 64
+                        },
+                        "application": {
+                          "type": "string",
+                          "maxLength": 80
+                        },
+                        "name": {
+                          "type": "string",
+                          "maxLength": 80
+                        },
+                        "avatar_url": {
+                          "type": "string",
+                          "maxLength": 2048
+                        },
+                        "model": {
+                          "type": "string",
+                          "maxLength": 120
+                        },
+                        "contribution": {
+                          "type": "string",
+                          "maxLength": 240
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "application"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": "Actual participants, self reported; omitted update preserves credits, [] clears them"
                   }
                 },
                 "allOf": [
@@ -728,6 +768,208 @@
             "description": "不存在或不属于本人"
           }
         }
+      }
+    },
+    "/v1/me/profile": {
+      "get": {
+        "summary": "Read own creator identity and AI partners, without contacts or keys",
+        "security": [
+          {
+            "publisherToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profile and current revision"
+          }
+        }
+      },
+      "post": {
+        "summary": "Update requested profile fields; cannot change homepage visibility",
+        "security": [
+          {
+            "publisherToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "expected_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 80
+                  },
+                  "bio": {
+                    "type": "string",
+                    "maxLength": 400
+                  },
+                  "avatar_url": {
+                    "type": "string",
+                    "maxLength": 2048
+                  }
+                },
+                "required": [
+                  "expected_revision"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated current state"
+          },
+          "409": {
+            "description": "Reread current revision before retrying"
+          }
+        }
+      }
+    },
+    "/v1/me/ai-partners": {
+      "get": {
+        "summary": "Read own registered AI partners",
+        "security": [
+          {
+            "publisherToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owned partners"
+          }
+        }
+      },
+      "post": {
+        "summary": "Register or update a self-reported AI partner",
+        "security": [
+          {
+            "publisherToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+                    "maxLength": 64
+                  },
+                  "expected_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "application": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "bio": {
+                    "type": "string",
+                    "maxLength": 400
+                  },
+                  "avatar_url": {
+                    "type": "string",
+                    "maxLength": 2048
+                  },
+                  "show_on_profile": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "key",
+                  "expected_revision"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated current state"
+          },
+          "409": {
+            "description": "Reread current revision before retrying"
+          }
+        }
+      }
+    },
+    "/v1/me/works/{work_id}/visibility": {
+      "post": {
+        "summary": "Change own standalone asset access without reuploading bytes",
+        "security": [
+          {
+            "publisherToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "expected_version": {
+                    "type": "string"
+                  },
+                  "expected_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "visibility": {
+                    "type": "string",
+                    "enum": [
+                      "private",
+                      "public"
+                    ]
+                  }
+                },
+                "required": [
+                  "expected_version",
+                  "expected_revision",
+                  "visibility"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated current state"
+          },
+          "409": {
+            "description": "Reread current revision before retrying"
+          }
+        },
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
       }
     }
   },

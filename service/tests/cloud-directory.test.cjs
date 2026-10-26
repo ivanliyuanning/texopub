@@ -1,22 +1,13 @@
-const {test}=require('node:test');const assert=require('node:assert/strict');const {readFileSync}=require('node:fs');const {JSDOM}=require('../../.tools/node_modules/jsdom');
-const html=readFileSync('build/current/site/index.html','utf8');const legacy=JSON.parse(readFileSync('service/legacy.json','utf8')).works;
-test('cloud works appear in navigation, counts and filters; author metadata remains text',async()=>{
- const work={id:'a'.repeat(32),title:'<script>window.bad=true</script>',summary:'New published tutorial',category_id:'technology/software',category:'技术与AI / 软件与编程',format:'tool',tags:['工具'],author:'New contributor',updated:'2026-10-22',url:'https://commonplace-content.ivanliyuanning123.workers.dev/p/a/demo/',icon:'https://commonplace-content.ivanliyuanning123.workers.dev/v/a/icon.svg'};
- const dom=new JSDOM(html,{url:'https://co-created-library-lyn.pages.dev/',runScripts:'dangerously',beforeParse(w){w.fetch=async()=>({ok:true,json:async()=>({items:[...legacy,work]})});w.HTMLElement.prototype.scrollIntoView=function(){};}});
- await new Promise(resolve=>setImmediate(resolve));const d=dom.window.document;
- assert.equal(d.querySelectorAll('.directory-entry').length,2);assert.equal(d.querySelector('[data-category="technology/software"] .count').textContent,'1');
- assert.equal(dom.window.bad,undefined);assert(d.querySelectorAll('.directory-entry')[0].textContent.includes('<script>'));
- d.querySelector('[data-category="technology/software"]').click();assert.equal([...d.querySelectorAll('.directory-entry')].filter(n=>!n.hidden).length,1);
- const q=d.querySelector('#work-search');q.value='New published';q.dispatchEvent(new dom.window.Event('input'));assert.equal([...d.querySelectorAll('.directory-entry')].filter(n=>!n.hidden).length,1);
- assert.equal(d.querySelector('#result-status').textContent,'1 份作品');dom.window.close();
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const {open,pid}=require('../../tests/helpers/community.cjs');
+const work=(id,title,category='humanities/museums')=>({id,publisher_id:pid,author:'作者',title,summary:'摘要',category_id:category,category_path:['主题','分类'],category:'分类',format:'guide',tags:[],updated:'2026-10-26',url:'https://works.example.com/'+id,ai_partners:[]});
+test('live catalog participates in gallery, taxonomy counts and keyword filtering, with safe metadata',async()=>{
+ const c=await open('/',{publicWorks:[work('1','<script>bad()</script>'),work('2','New published','technology/software')]});assert.equal(c.d.querySelectorAll('.work-card').length,2);assert.equal(c.d.querySelector('.work-title script'),null);c.d.querySelector('[data-category-select="technology/software"]').click();assert.equal(c.d.querySelector('#result-count').textContent,'1 份作品');const input=c.d.querySelector('#work-search');input.value='New published';input.dispatchEvent(new c.w.Event('input'));assert.equal(c.d.querySelector('#result-count').textContent,'1 份作品');c.close();
 });
-test('network failure does not expose stale works that may have become unlisted or deleted',async()=>{
- const dom=new JSDOM(html,{url:'https://co-created-library-lyn.pages.dev/',runScripts:'dangerously',beforeParse(w){w.fetch=async()=>{throw Error('offline')};}});await new Promise(resolve=>setImmediate(resolve));
- assert.equal(dom.window.document.querySelectorAll('.directory-entry').length,0);assert.match(dom.window.document.querySelector('.directory-caption').textContent,/刷新重试/);dom.window.close();
+test('live catalog failure has retry and never displays an embedded stale snapshot',async()=>{
+ const c=await open('/',{failPublic:true});assert.equal(c.d.querySelectorAll('.work-card').length,0);assert(c.d.querySelector('#retry-load'));assert.match(c.d.querySelector('h1').textContent,/暂时无法读取/);c.close();
 });
-test('external sites share category and domain search, show their domain and open the original site safely',async()=>{
- const work={id:'b'.repeat(32),source:'external',title:'External guide',summary:'<img src=x onerror=alert(1)>',category_id:'humanities/museums',category:'人文与艺术 / 博物馆与文物',format:'guide',tags:[],author:'Collector',updated:'2026-10-22',url:'https://guide.example/museum/',external_domain:'guide.example',link_status:'unavailable',icon:'https://content.example/v/icon.svg'};
- const dom=new JSDOM(html,{url:'https://texopub.com/',runScripts:'dangerously',beforeParse(w){w.fetch=async()=>({ok:true,json:async()=>({items:[...legacy,work]})});}});await new Promise(resolve=>setImmediate(resolve));
- const d=dom.window.document,entry=d.querySelector('[data-source="external"]'),a=entry.querySelector('h3 a');assert.equal(a.href,work.url);assert.equal(a.target,'_blank');assert.equal(a.rel,'noopener noreferrer');assert.match(entry.textContent,/外部网站 · guide.example/);assert.match(entry.textContent,/收录者：Collector/);assert.match(entry.textContent,/链接可能失效/);assert(!entry.querySelector('p img'));
- const q=d.querySelector('#work-search');q.value='guide.example';q.dispatchEvent(new dom.window.Event('input'));assert.equal([...d.querySelectorAll('.directory-entry')].filter(n=>!n.hidden).length,1);assert.equal(d.querySelector('[data-category="humanities/museums"] .count').textContent,'2');dom.window.close();
+test('external sites retain original links, domain search, collector attribution and availability warnings',async()=>{
+ const item={...work('3','External guide'),source:'external',external_domain:'guide.example.com',url:'https://guide.example.com/original/',link_status:'unavailable',author:'Collector'};
+ const c=await open('/',{publicWorks:[item]});const card=c.d.querySelector('[data-source="external"]'),a=card.querySelector('h2 a');assert.equal(a.href,item.url);assert.equal(a.target,'_blank');assert.match(a.rel,/noopener/);assert.match(card.textContent,/外部网站 · guide.example.com/);assert.match(card.textContent,/收录者：Collector/);assert.match(card.textContent,/链接可能失效/);const input=c.d.querySelector('#work-search');input.value='guide.example.com';input.dispatchEvent(new c.w.Event('input'));assert.equal(c.d.querySelector('#result-count').textContent,'1 份作品');c.close();
 });

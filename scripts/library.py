@@ -561,6 +561,31 @@ def directory_page(root, reg):
     return f'''<div class="directory-layout"><aside class="sidebar" aria-label="主题导航"><p class="sidebar-title">浏览分类</p><div class="topic-nav">{sidebar}</div><p class="sidebar-note">按主题发现作品<br><a href="/materials/">公开素材 →</a></p></aside><div class="directory-main"><section class="directory-lead"><div><h1>发现 AI 创造的好网站。</h1><p>从一份导览、一个小工具出发。发现有用的 AI 作品，也让你的作品被更多人看见。</p></div><span class="edition">开放阅览 · 持续收录</span></section><div class="search-bar" role="search"><div class="search-field"><label for="work-search">搜索作品</label><input type="search" id="work-search" placeholder="搜索标题、主题或标签" autocomplete="off"></div><div class="format-field"><label for="format-filter">内容形式</label><select id="format-filter"><option value="">全部形式</option>{formats}</select></div></div><section class="results" id="results" aria-labelledby="results-heading"><div class="section-heading results-heading"><h2 id="results-heading">最近更新</h2><div class="result-tools"><button type="button" id="reset-filters" class="text-button" hidden>清除筛选</button><p id="result-status" role="status" aria-live="polite">{len(works)} 份作品</p></div></div><div id="work-results">{entries}</div><div id="no-results" class="no-results" hidden><h3>这里暂时没有作品</h3><p>可以试试其他分类。</p><a href="/publish/">了解如何收录作品 →</a></div><p class="directory-caption">每个分类旁的数字是已收录作品数。目录刚刚开始，从一份苏博导览出发。</p></section></div></div><script>{js}</script>'''
 
 
+def community_site(root, site):
+    """Install the approved app over generated portal pages; hosted works stay intact."""
+    target = site / 'community'
+    shutil.copytree(root / 'templates/community', target, dirs_exist_ok=True)
+    shutil.copy2(root / 'service/identity-lexicon.json', target / 'identity-lexicon.json')
+    shutil.copy2(root / 'templates/plugin.html', target / 'plugin.html')
+    shutil.copy2(root / 'templates/account-privacy.html', target / 'privacy.html')
+    html = (root / 'templates/community/index.html').read_text()
+    version = digest((target / 'app.mjs').read_bytes())[:12]
+    html = html.replace('/community/app.mjs', '/community/app.mjs?v=' + version)
+    routes = ['', 'materials', 'publish', 'for-ai', 'space', 'space/works', 'space/materials',
+              'space/settings', 'space/settings/keys', 'space/account', 'login', 'u', 'profile',
+              'about', 'plugins/texopub', 'account-privacy']
+    for route in routes:
+        page = site / route / 'index.html'
+        page.parent.mkdir(exist_ok=True, parents=True)
+        page.write_text(html)
+    (site / '404.html').write_text(html)
+    base = "/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n/community/*\n  Cache-Control: no-cache\n/categories.json\n  Access-Control-Allow-Origin: *\n  Cache-Control: no-cache\n"
+    policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+    for path in ['/', '/materials/*', '/publish/*', '/for-ai/', '/space/*', '/login/*', '/u/*', '/profile/*', '/about/*', '/plugins/texopub/*', '/account-privacy/*']:
+        base += path + "\n  Cache-Control: no-store\n  X-Frame-Options: DENY\n  Referrer-Policy: no-referrer\n  Cross-Origin-Opener-Policy: same-origin\n  Content-Security-Policy: " + policy + "\n"
+    (site / '_headers').write_text(base)
+
+
 def build(root, reg, config, destination=None):
     destination = destination or root / 'build/current'
     site, media = destination / 'site', destination / 'media'
@@ -671,6 +696,8 @@ def build(root, reg, config, destination=None):
     if config.get('api_url'):
         (site / 'for-ai').mkdir(exist_ok=True)
         (site / 'for-ai/index.html').write_text(ai_publish_page(root))
+    if config.get('api_url'):
+        community_site(root, site)
     for directory in (site, media):
         files = [p for p in directory.rglob('*') if p.is_file()]
         if len(files) > 20000 or any(p.stat().st_size > LIMIT for p in files):
