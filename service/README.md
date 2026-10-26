@@ -1,3 +1,22 @@
+# 共创社区正式接入（Skill 2.1.0 / MCP 0.3.0）
+
+正式前端为 `templates/community/`，读取实时目录与本人空间。内容、资料、封面、展示范围及素材权限交给AI处理；页面底部只说明当前页可更新的内容。手机号/邮箱验证、个人主页授权、密钥与应用连接由本人操作。登录和权限沿用既有账号，不改变已有作品范围或网址。
+
+## 共创社区与资料更新（v2.1.0）
+
+网站以搜索、作品封面和创作者主页为中心。内容和资料在 AI 中修改，网页只提供当前页的简短说明；登录、公开主页授权、密钥与联系方式验证仍由本人完成，不向用户索取验证码或登录 Cookie。
+
+- 先用 `profile` / `get_my_profile` 读取资料和 revision。用 `profile-update --expected-revision N` 或 `update_my_profile` 修改名字、头像和已获确认的简介；只传要改的字段，冲突后重新读取，不直接覆盖。name=null（CLI `--reset-name`）恢复固定默认名，avatar_url="" 恢复默认头像，bio="" 明确清空简介。主页开关不在 AI 接口中。
+- 默认中文名由项目原创词表生成并保存，词表升级不重命名已有用户；头像按身份ID生成。自定义头像需公开HTTPS图片，不能用鉴权私有素材链接。简介默认空，只有用户提供或确认后才写入。
+- 用 `partners` 查看伙伴，或 `partner --key codex --application Codex --expected-revision 0` / `upsert_ai_partner` 新建。key在所属空间固定；新建revision=0，更新用实际revision。名称默认可确认的应用名，不猜具体模型；伙伴昵称、简介和自定义头像的改动遵循用户要求。`show_on_profile` 仅在用户明确要求展示该伙伴时设置，不会开启主页。
+- 发布时通过 `--ai-partners /path/to/contributors.json` / `ai_partners` 自报本件真实参与信息。例如 `[{"key":"codex","application":"Codex","contribution":"编写网页与交互"}]`。可以填写可确认的 `model`；未知则省略，不写“模型未提供”。单纯上传只记录上传，不冒称创作。信息是自报，不代表模型认证；旧作品不自动补署名。更新省略数组沿用原记录，空数组明确清空。
+- 没有封面时平台使用标题、分类、图标与配色排版兜底，不必生图。已有封面可用包内 `--cover` / `cover` 图片路径；原文件按字节保存。
+- 现有网站使用 CLI `submit` 或插件 `submit_website` 收录，保留原站地址及托管；不复制原站。独立素材改权限时，先 `show` / `get_work`，再用 `asset-visibility WORK_ID --expected-version VERSION --expected-revision N --visibility private|public` / `set_asset_visibility`。只有用户明确同意公开时设public；不能用于网页依赖文件。
+
+新增迁移 `0007_community.sql` 为资料修订和伙伴表增列。默认词表 `identity-lexicon.json` 是项目原创草案，生成名字后保存；仅迁移空白及“新创作者”占位名。旧作品没有伙伴记录时不推断署名。AI资料写入和素材权限使用revision/version校验，公开主页不能由AI开启。
+
+MCP共20工具，新增get_my_profile、update_my_profile、upsert_ai_partner、submit_website、set_asset_visibility；既有读/发布scope保持。通用包0.3.0，现有个人应用同身份更新包1.2.0。工具部署后刷新既有连接并在新对话实际调用；不能只凭包版本宣称客户端已同步。以下早期上线记录保留为历史，当前界面以本节为准。
+
 # 永久删除与作品展示范围（v2.0.0 / MCP 0.2.0，2026-10-26）
 
 ## 展示范围与永久删除（v2.0.0）
@@ -10,13 +29,13 @@
 
 三档控制收录位置，链接及网页依赖均可直接访问；“不展示”不是加密、私密访问或登录保护。个人主页未开启时不自动开启。独立素材的 `private/public` 权限保持原规则，不要和网页 `listing` 混淆。
 
-发布/收录传 `--listing unlisted|profile|public`（插件 `publish_website` / `prepare_upload` 同名字段）。更新省略 listing 保持该作品原范围，不因默认值改变而扩大展示。可以不上传新版本，使用网页「展示范围」、插件 `set_work_listing`，或客户端 `listing WORK_ID --expected-version VERSION --expected-revision REVISION --listing profile`；操作前读取 `show` / `get_work` 的当前版本和revision，冲突时刷新。
+发布/收录传 `--listing unlisted|profile|public`（插件 `publish_website` / `prepare_upload` 同名字段）。更新省略 listing 保持该作品原范围，不因默认值改变而扩大展示。可以不上传新版本，使用插件 `set_work_listing`，或客户端 `listing WORK_ID --expected-version VERSION --expected-revision REVISION --listing profile`；操作前读取 `show` / `get_work` 的当前版本和revision，冲突时刷新。
 
 用户要求更改以后的默认值时，客户端 `preferences --default-listing profile` 或插件 `set_publish_preferences`。默认值保存到所属空间，网页设置中也能修改；不改已有作品。改变默认值不等于用户要求省略每次发布询问，只有明确长期指示才省略。
 
-永久删除仅在用户明确要求时执行，不用归档代替删除。先读取当前版本，再用网页「永久删除」、插件 `delete_work(work_id, expected_version, confirm=true)`，或客户端 `delete WORK_ID --expected-version VERSION --confirm`。未提交草稿的版本为 null，CLI 用 `--expected-version draft`。删除不可恢复；关闭作品和历史链接，清除所有历史版本及不被其他内容引用的文件，完成后释放额度。返回 `deleted=false,deleting=true` 表示仍在清理，继续使用相同参数，直到 `deleted=true`；失败也用原参数重试，不宣称已经完成。地址占用记录保留，旧短网址不会指向别人的内容。外部收录只删本站记录和图标，不影响原站。
+永久删除仅在用户明确要求时执行，不用归档代替删除。先读取当前版本，再用插件 `delete_work(work_id, expected_version, confirm=true)`，或客户端 `delete WORK_ID --expected-version VERSION --confirm`。未提交草稿的版本为 null，CLI 用 `--expected-version draft`。删除不可恢复；关闭作品和历史链接，清除所有历史版本及不被其他内容引用的文件，完成后释放额度。返回 `deleted=false,deleting=true` 表示仍在清理，继续使用相同参数，直到 `deleted=true`；失败也用原参数重试，不宣称已经完成。地址占用记录保留，旧短网址不会指向别人的内容。外部收录只删本站记录和图标，不影响原站。
 
-网页「我的作品」可以删除已发布、草稿或归档作品；「我的素材」可以删除独立素材，归档素材另列。网页依赖属于整份作品，不能在素材卡中误删整份作品。`archive` 仍只下架保留数据和额度。测试内容验收后永久删除并核实目录、本人列表、旧链接和额度，只保留少量本地证据。
+让AI处理本人作品和独立素材的删除，网页不提供手动内容管理。网页依赖属于整份作品，不能在素材卡中误删整份作品。`archive` 仍只下架保留数据和额度。测试内容验收后永久删除并核实目录、本人列表、旧链接和额度，只保留少量本地证据。
 
 
 # TexoPub 云端 MCP / 插件测试版（v0.1.4，2026-10-23）
@@ -75,7 +94,7 @@
 - `taxonomy.json`：API分类快照；修改根目录分类时应同步并重新部署后端。
 - `skill/commonplace-remote-publish/`：公开Skill源文件、浏览与发布说明、独立客户端。它介绍产品、部署与使用方式，并邀请共创，不包含任何凭证。
 - `public/`：公开Skill、OpenAPI、客户端下载与ZIP，由Pages构建复制。修改后运行 `python3 scripts/package_public_skill.py`，按固定4文件白名单生成版本包及SHA256清单；客户端自动从 `scripts/remote_publish.py` 同步。禁止整体打包项目目录。
-- `/publish/` 与 `/for-ai/`：由 `templates/ai-publish.*` 和 `scripts/library.py` 生成同一个「复制提示词交给AI」页面，无人工文件上传控件；素材使用 `?kind=asset` 提示词。当前固定版ZIP由 `/for-ai/manifest.json` 声明（以 manifest 实际版本为准），稳定地址为 `/downloads/commonplace-skill.zip`。
+- `/publish/` 与 `/for-ai/`：由 `templates/community/` 和 `scripts/library.py` 生成静态AI接入指南，无复制或人工文件上传控件。当前固定版ZIP由 `/for-ai/manifest.json` 声明（以 manifest 实际版本为准），稳定地址为 `/downloads/commonplace-skill.zip`。
 
 ## 外部网站收录
 

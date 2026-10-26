@@ -74,6 +74,14 @@ def main(argv=None):
     ap.add_argument('--credential',type=Path,default=Path(os.environ.get('COMMONPLACE_CREDENTIAL',str(Path.home()/'.config/commonplace/credential.json'))))
     subs=ap.add_subparsers(dest='command',required=True)
     subs.add_parser('categories');subs.add_parser('me');subs.add_parser('list');subs.add_parser('materials');subs.add_parser('my-works');subs.add_parser('my-materials')
+    subs.add_parser('profile');subs.add_parser('partners')
+    profile_update=subs.add_parser('profile-update');profile_update.add_argument('--expected-revision',type=int,required=True)
+    profile_names=profile_update.add_mutually_exclusive_group();profile_names.add_argument('--name');profile_names.add_argument('--reset-name',action='store_true')
+    profile_update.add_argument('--bio');profile_update.add_argument('--avatar-url')
+    partner=subs.add_parser('partner');partner.add_argument('--key',required=True);partner.add_argument('--expected-revision',type=int,required=True)
+    for field in ['application','name','bio','avatar-url']:partner.add_argument('--'+field)
+    partner.add_argument('--show-on-profile',choices=['true','false'])
+    asset_visibility=subs.add_parser('asset-visibility');asset_visibility.add_argument('work_id');asset_visibility.add_argument('--expected-version',required=True);asset_visibility.add_argument('--expected-revision',type=int,required=True);asset_visibility.add_argument('--visibility',choices=['private','public'],required=True)
     configure=subs.add_parser('configure');configure.add_argument('file',type=Path)
     show=subs.add_parser('show');show.add_argument('work_id')
     delete=subs.add_parser('delete');delete.add_argument('work_id');delete.add_argument('--expected-version',required=True,help='当前版本；无版本草稿用draft');delete.add_argument('--confirm',action='store_true',required=True)
@@ -88,6 +96,7 @@ def main(argv=None):
         p=subs.add_parser(command);p.add_argument('source',type=str if command=='submit' else Path);p.add_argument('--slug',required=True);p.add_argument('--title',required=True);p.add_argument('--summary',default='');p.add_argument('--tags',default='');p.add_argument('--license',default='未声明开放许可');p.add_argument('--work-id');p.add_argument('--expected-version');p.add_argument('--receipt',type=Path);p.add_argument('--update',action='store_true')
         if command=='assets':p.add_argument('--public',action='store_true',help='仅在明确授权公开该素材时使用；默认私有')
         if command in {'publish','submit'}:p.add_argument('--category',required=True);p.add_argument('--icon',type=Path,required=True);p.add_argument('--format',default='article')
+        if command in {'publish','submit'}:p.add_argument('--ai-partners',type=Path,help='真实AI参与记录JSON文件；省略沿用，空数组清空')
         if command in {'publish','submit'}:p.add_argument('--listing',choices=['unlisted','profile','public'],help='不展示 / 仅个人主页 / 公开展示；三档均可通过链接访问')
         if command=='publish':p.add_argument('--cover')
         if command=='submit':p.add_argument('--link-status',choices=['unchecked','unavailable'],default='unchecked')
@@ -111,6 +120,24 @@ def main(argv=None):
         route='/v1/me/works' if args.command=='my-works' else '/v1/me/materials'
         print(json.dumps(request(api,route,token),ensure_ascii=False,indent=2));return
     if args.command=='me':print(json.dumps(request(api,'/v1/me',token),ensure_ascii=False,indent=2));return
+    if args.command in {'profile','partners'}:
+        print(json.dumps(request(api,'/v1/me/'+('profile' if args.command=='profile' else 'ai-partners'),token),ensure_ascii=False,indent=2));return
+    if args.command=='profile-update':
+        body={'expected_revision':args.expected_revision}
+        if args.reset_name:body['name']=None
+        for field in ['name','bio','avatar_url']:
+            value=getattr(args,field,None)
+            if value is not None:body[field]=value
+        print(json.dumps(request(api,'/v1/me/profile',token,body,'POST'),ensure_ascii=False,indent=2));return
+    if args.command=='partner':
+        body={'key':args.key,'expected_revision':args.expected_revision}
+        for field in ['application','name','bio','avatar_url']:
+            value=getattr(args,field,None)
+            if value is not None:body[field]=value
+        if args.show_on_profile is not None:body['show_on_profile']=args.show_on_profile=='true'
+        print(json.dumps(request(api,'/v1/me/ai-partners',token,body,'POST'),ensure_ascii=False,indent=2));return
+    if args.command=='asset-visibility':
+        print(json.dumps(request(api,'/v1/me/works/'+args.work_id+'/visibility',token,{'expected_version':args.expected_version,'expected_revision':args.expected_revision,'visibility':args.visibility},'POST'),ensure_ascii=False,indent=2));return
     if args.command=='show':
         print(json.dumps(request(api,'/v1/me/works/'+args.work_id,token),ensure_ascii=False,indent=2));return
     if args.command=='preferences':
@@ -155,6 +182,10 @@ def main(argv=None):
             children=list(folder.iterdir());source=children[0] if len(children)==1 and children[0].is_dir() else folder
         body={'slug':args.slug,'title':args.title,'summary':args.summary,'tags':[x.strip() for x in args.tags.split(',') if x.strip()],'license':args.license,'kind':'asset' if args.command=='assets' else 'work'}
         if args.command in {'publish','submit'} and args.listing is not None:body['listing']=args.listing
+        if args.command in {'publish','submit'} and args.ai_partners is not None:
+            contributors=json.loads(args.ai_partners.expanduser().read_text())
+            if not isinstance(contributors,list):raise Error('AI参与记录需要JSON数组')
+            body['ai_partners']=contributors
         if args.command=='assets':body['visibility']='public' if args.public else 'private'
         if args.command=='submit':
             parsed=urllib.parse.urlsplit(source)
@@ -190,7 +221,16 @@ def main(argv=None):
                 content=re.sub(r'data:(image/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=\r\n]+)',extract,data.decode('utf8'))
                 payload[name]=content.encode()
             body.update({'category_id':args.category,'format':args.format,'icon':icon_name,'entry':entry.relative_to(base).as_posix()})
-            if args.cover:body['cover']=args.cover
+            if args.cover:
+                if args.cover in payload:body['cover']=args.cover
+                else:
+                    cover_path=Path(args.cover).expanduser()
+                    if not cover_path.is_absolute():cover_path=base/cover_path
+                    if not cover_path.is_file() or cover_path.suffix.lower() not in {'.png','.jpg','.jpeg','.webp','.gif','.svg','.avif'}:raise Error('封面需要图片文件')
+                    cover_name='commonplace-cover'+cover_path.suffix.lower()
+                    cover_bytes=cover_path.read_bytes()
+                    if cover_name in payload and payload[cover_name]!=cover_bytes:raise Error('封面文件名冲突')
+                    payload[cover_name]=cover_bytes;body['cover']=cover_name
         else:
             if source.suffix.lower() not in MEDIA|{'.txt','.json'}:raise Error('不支持的独立素材类型')
             payload={source.name:source.read_bytes()}

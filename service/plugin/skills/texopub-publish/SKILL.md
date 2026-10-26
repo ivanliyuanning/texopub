@@ -1,6 +1,6 @@
 ---
 name: texopub-publish
-description: Publish or update a static HTML website or upload an independent file to the user's TexoPub space using connected cloud MCP tools. Use when the user requests TexoPub publishing, an update, or personal asset storage, listing changes, default preferences, or permanent deletion.
+description: Publish or update a static HTML website or upload an independent file to the user's TexoPub space using connected cloud MCP tools. Use when the user requests TexoPub publishing, an update, or personal asset storage, creator profiles, AI partners, external-site cataloging, asset permissions, listing changes, default preferences, or permanent deletion.
 ---
 
 # TexoPub cloud publishing
@@ -43,3 +43,22 @@ Use `upload_asset` with an authorized conversation file. Omit `visibility` for p
 `get_my_space` identifies the connected space; `list_my_materials` lists its files. `archive_work` closes access and keeps historical storage usage; use only on the user's removal request, after reading the current version. It cannot remove other publishers' works.
 
 If connection is required, let the host launch OAuth and have the user sign in on texopub.com. Never ask them to paste a password, verification code, publishing key, or cookie into the conversation. Connections can be revoked at https://texopub.com/api/oauth/connections.
+
+
+## Creator identity and AI partners (v0.3.0)
+
+TexoPub is a human and AI co-creation community. Its website displays content; editing is performed by AI. Human login, homepage opt-in, API-key issuance and OAuth approval remain on the website.
+
+Use `get_my_profile` before `update_my_profile`. Supply the current `expected_revision`, change only fields the user requested, and reread on conflict. `name: null` restores the stable generated name; `avatar_url: ""` restores the generated avatar; `bio: ""` clears the biography. Add a biography only when provided or confirmed by the user. Custom avatars must be public HTTPS images, never private authenticated file URLs. Profile tools cannot enable the homepage.
+
+Use `upsert_ai_partner` to register or update an owned partner: stable `key`, a confirmed `application` name, and current `expected_revision` (0 for new). Omitted name defaults to the application. Only set a nickname, biography, custom avatar or `show_on_profile` when covered by the user's request. This is self-reported identity, not verified model attribution.
+
+Pass `ai_partners` to `publish_website` / `prepare_upload` for actual participants in this work: `[{"key":"codex","application":"Codex","contribution":"Implemented layout and interaction"}]`. Report `model` only when known from the current client. Omit unknown model and biography. Merely uploading is not authorship. Do not infer or backfill old work credits. Omitted array preserves existing credits on update; an empty array explicitly clears them. A partner appears on an enabled homepage through its visible work or an explicit profile-display request.
+
+Cover generation is optional. Pass a packaged image path as `cover`, or allow the platform's title/category/icon layout fallback. Do not require users to generate images just to publish.
+
+## Existing websites and asset permissions
+
+Use `submit_website` for an existing public HTTPS website. Supply its URL, category and dedicated icon; do not copy the original site's files or change its hosting. Updates use the original work identity and current version.
+
+Use `set_asset_visibility` only for an owned standalone asset, after `get_work`; pass current version/revision. Public access requires the user's explicit request. This changes permissions without replacing bytes. It does not apply to a webpage's dependencies.

@@ -1,0 +1,118 @@
+{
+  "schema_version": 5,
+  "title": "TexoPub.ai",
+  "items": [
+    {
+      "source": "hosted",
+      "title": "《罪与罚》人物随手查",
+      "summary": "34位人物的手机阅读伴页，可选七组译本，按姓名、昵称、父称与异译名检索，点开查看简短身份与基本关系。",
+      "tags": [
+        "罪与罚",
+        "陀思妥耶夫斯基",
+        "人物速查",
+        "文学",
+        "多译本"
+      ],
+      "format": "tool",
+      "category_id": "humanities/literature",
+      "license": "未声明开放许可",
+      "author": "新创作者",
+      "category_path": [
+        "人文与艺术",
+        "文学与阅读"
+      ],
+      "category": "人文与艺术 / 文学与阅读",
+      "entry": "index.html",
+      "icon_path": "commonplace-icon.svg",
+      "icon": "https://content.texopub.com/v/640d89ce66154bf491cb8048d5a62f07/commonplace-icon.svg",
+      "cover": "",
+      "listing": "public",
+      "revision": 0,
+      "id": "c4fd88207e8149fe9494d1a0bdf712b7",
+      "slug": "crime-and-punishment",
+      "version": "640d89ce66154bf491cb8048d5a62f07",
+      "publisher_id": "7a88c60ec59a4d54889fc1ccd2632a16",
+      "url": "https://content.texopub.com/p/crime-and-punishment/",
+      "path": "https://content.texopub.com/p/crime-and-punishment/",
+      "published": "2026-10-22",
+      "updated": "2026-10-22"
+    },
+    {
+      "source": "hosted",
+      "title": "川流万物｜四川大学博物馆图文导览",
+      "summary": "36项馆藏图文导览，梳理展品性质、可考来历，以及有出处的用途、工艺和自然史背景。",
+      "tags": [
+        "四川大学博物馆",
+        "成都",
+        "文物",
+        "自然标本",
+        "图文导览"
+      ],
+      "format": "guide",
+      "category_id": "humanities/museums",
+      "license": "未声明开放许可",
+      "author": "新创作者",
+      "category_path": [
+        "人文与艺术",
+        "博物馆与文物"
+      ],
+      "category": "人文与艺术 / 博物馆与文物",
+      "entry": "川流万物-四川大学博物馆图文导览.html",
+      "icon_path": "commonplace-icon.svg",
+      "icon": "https://content.texopub.com/v/8e937f33a7604264bbd0cbb87c3ba86a/commonplace-icon.svg",
+      "cover": "",
+      "listing": "public",
+      "revision": 0,
+      "id": "93cecc40bfbc4467b458b359f9a0fbff",
+      "slug": "sichuan-university-museum",
+      "version": "8e937f33a7604264bbd0cbb87c3ba86a",
+      "publisher_id": "7a88c60ec59a4d54889fc1ccd2632a16",
+      "url": "https://content.texopub.com/p/sichuan-university-museum/",
+      "path": "https://content.texopub.com/p/sichuan-university-museum/",
+      "published": "2026-10-22",
+      "updated": "2026-10-22"
+    },
+    {
+      "source": "hosted",
+      "title": "江南器物记",
+      "summary": "从史前江南到吴门风雅，沿着历史、人物、考古与制作工艺，读懂展柜里的一件件器物。",
+      "tags": [
+        "苏州博物馆",
+        "苏博",
+        "文物",
+        "历史",
+        "工艺",
+        "图文导览"
+      ],
+      "format": "guide",
+      "category_id": "humanities/museums",
+      "license": "未声明开放许可；图片及资料来源见作品内注释。",
+      "author": "新创作者",
+      "category_path": [
+        "人文与艺术",
+        "博物馆与文物"
+      ],
+      "category": "人文与艺术 / 博物馆与文物",
+      "entry": "index.html",
+      "icon_path": "icon.svg",
+      "cover_path": "resources/苏州博物馆本馆与周边历史街区俯瞰资料照-4cd76c0c.jpg",
+      "icon": "https://commonplace-content.ivanliyuanning123.workers.dev/v/bd4bcac0c60247bdabbdf21b2ebca652/icon.svg",
+      "cover": "https://commonplace-content.ivanliyuanning123.workers.dev/v/bd4bcac0c60247bdabbdf21b2ebca652/resources/%E8%8B%8F%E5%B7%9E%E5%8D%9A%E7%89%A9%E9%A6%86%E6%9C%AC%E9%A6%86%E4%B8%8E%E5%91%A8%E8%BE%B9%E5%8E%86%E5%8F%B2%E8%A1%97%E5%8C%BA%E4%BF%AF%E7%9E%B0%E8%B5%84%E6%96%99%E7%85%A7-4cd76c0c.jpg",
+      "legacy_id": "suzhou-museum",
+      "legacy_initial_version": "bd4bcac0c60247bdabbdf21b2ebca652",
+      "original_published": "2026-10-19",
+      "subtitle": "苏州博物馆本馆图文导览",
+      "listing": "public",
+      "revision": 0,
+      "id": "854f50dc76d645809acf16b37c251df6",
+      "slug": "suzhou-museum",
+      "version": "bd4bcac0c60247bdabbdf21b2ebca652",
+      "publisher_id": "7a88c60ec59a4d54889fc1ccd2632a16",
+      "url": "https://texopub.com/p/suzhou-museum/",
+      "path": "https://texopub.com/p/suzhou-museum/",
+      "published": "2026-10-22",
+      "updated": "2026-10-22",
+      "preview_cover": "/data/suzhou-cover.jpg"
+    }
+  ]
+}

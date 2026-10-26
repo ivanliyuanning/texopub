@@ -32,13 +32,13 @@ python3 scripts/commonplace.py --credential /private/path/credential.json assets
 
 三档控制收录位置，链接及网页依赖均可直接访问；“不展示”不是加密、私密访问或登录保护。个人主页未开启时不自动开启。独立素材的 `private/public` 权限保持原规则，不要和网页 `listing` 混淆。
 
-发布/收录传 `--listing unlisted|profile|public`（插件 `publish_website` / `prepare_upload` 同名字段）。更新省略 listing 保持该作品原范围，不因默认值改变而扩大展示。可以不上传新版本，使用网页「展示范围」、插件 `set_work_listing`，或客户端 `listing WORK_ID --expected-version VERSION --expected-revision REVISION --listing profile`；操作前读取 `show` / `get_work` 的当前版本和revision，冲突时刷新。
+发布/收录传 `--listing unlisted|profile|public`（插件 `publish_website` / `prepare_upload` 同名字段）。更新省略 listing 保持该作品原范围，不因默认值改变而扩大展示。可以不上传新版本，使用插件 `set_work_listing`，或客户端 `listing WORK_ID --expected-version VERSION --expected-revision REVISION --listing profile`；操作前读取 `show` / `get_work` 的当前版本和revision，冲突时刷新。
 
-用户要求更改以后的默认值时，客户端 `preferences --default-listing profile` 或插件 `set_publish_preferences`。默认值保存到所属空间，网页设置中也能修改；不改已有作品。改变默认值不等于用户要求省略每次发布询问，只有明确长期指示才省略。
+用户要求更改以后的默认值时，客户端 `preferences --default-listing profile` 或插件 `set_publish_preferences`。默认值保存到所属空间，由AI按要求修改；不改已有作品。改变默认值不等于用户要求省略每次发布询问，只有明确长期指示才省略。
 
-永久删除仅在用户明确要求时执行，不用归档代替删除。先读取当前版本，再用网页「永久删除」、插件 `delete_work(work_id, expected_version, confirm=true)`，或客户端 `delete WORK_ID --expected-version VERSION --confirm`。未提交草稿的版本为 null，CLI 用 `--expected-version draft`。删除不可恢复；关闭作品和历史链接，清除所有历史版本及不被其他内容引用的文件，完成后释放额度。返回 `deleted=false,deleting=true` 表示仍在清理，继续使用相同参数，直到 `deleted=true`；失败也用原参数重试，不宣称已经完成。地址占用记录保留，旧短网址不会指向别人的内容。外部收录只删本站记录和图标，不影响原站。
+永久删除仅在用户明确要求时执行，不用归档代替删除。先读取当前版本，再用插件 `delete_work(work_id, expected_version, confirm=true)`，或客户端 `delete WORK_ID --expected-version VERSION --confirm`。未提交草稿的版本为 null，CLI 用 `--expected-version draft`。删除不可恢复；关闭作品和历史链接，清除所有历史版本及不被其他内容引用的文件，完成后释放额度。返回 `deleted=false,deleting=true` 表示仍在清理，继续使用相同参数，直到 `deleted=true`；失败也用原参数重试，不宣称已经完成。地址占用记录保留，旧短网址不会指向别人的内容。外部收录只删本站记录和图标，不影响原站。
 
-网页「我的作品」可以删除已发布、草稿或归档作品；「我的素材」可以删除独立素材，归档素材另列。网页依赖属于整份作品，不能在素材卡中误删整份作品。`archive` 仍只下架保留数据和额度。测试内容验收后永久删除并核实目录、本人列表、旧链接和额度，只保留少量本地证据。
+让AI处理「我的作品」中的已发布、草稿或归档作品，以及「我的素材」中的独立素材。网页只负责展示，不提供手动内容编辑。网页依赖属于整份作品，不能在素材卡中误删整份作品。`archive` 仍只下架保留数据和额度。测试内容验收后永久删除并核实目录、本人列表、旧链接和额度，只保留少量本地证据。
 
 
 ## 收录已有网站
@@ -146,7 +146,7 @@ python3 scripts/commonplace.py list
 - `/space/` 是「我的」概览，只显示自己的最近4份作品与6份素材；`/space/works/`、`/space/materials/` 分别查看全部。私有素材永不进入别人的空间或公开主页。
 - `/space/settings/` 管理手机号、备用邮箱、显示名称及公开主页开关。默认不公开主页，不要代用户开启。关闭主页不等于将已经发布的作品设为私有。
 - `/space/settings/keys/` 创建、撤销或调整密钥期限；默认六个日历月，自定义1–3650天。延长期限继续使用原密钥，完整密钥仍仅创建时显示一次；更改期限需要近期登录。
-- `/publish/` 提供三种发布模式的 Skill 和可复制提示词；「获取密钥给 AI」进入密钥页。未登录会转到独立 `/login/`，验证后回到目标页。「我的」未登录时先显示登录提示。
+- `/publish/` 提供静态发布步骤及插件/Skill接入说明，没有复制或手动上传按钮。「AI连接」中由本人创建密钥；未登录先进入独立 `/login/`。
 - 苏博是从原静态基线迁入的作品，仍以服务返回的 `https://texopub.com/p/suzhou-museum/` 为稳定入口；不要为迁入作品拼接新地址。普通新作品自动使用服务返回的自有域名短地址。
 
 ## 自动分配带域名的短地址（v1.9.0）
@@ -156,3 +156,14 @@ python3 scripts/commonplace.py list
 短地址在作品创建时保留，更新沿用原work_id、receipt与 `--update`，地址不变。下架后仍保留名称，旧链接不会转向别人的作品。草稿、下架内容及私有素材不能通过短地址访问；外站收录仍使用原站网址。旧含发布者ID的作品路径和workers.dev链接继续有效；苏博保留其已公布的兼容入口。短地址可包含多HTML子页，沿用同一作品根路径。
 
 内容域与主站不同origin，并保持iframe沙箱；普通发布者只需自己的TexoPub发布密钥，不需要Cloudflare账号或域名管理权限。川大导览的短地址也使用同一通用分配机制，不再单独配置。
+
+## 共创社区与资料更新（v2.1.0）
+
+网站以搜索、作品封面和创作者主页为中心。内容和资料在 AI 中修改，网页只提供当前页的简短说明；登录、公开主页授权、密钥与联系方式验证仍由本人完成，不向用户索取验证码或登录 Cookie。
+
+- 先用 `profile` / `get_my_profile` 读取资料和 revision。用 `profile-update --expected-revision N` 或 `update_my_profile` 修改名字、头像和已获确认的简介；只传要改的字段，冲突后重新读取，不直接覆盖。name=null（CLI `--reset-name`）恢复固定默认名，avatar_url="" 恢复默认头像，bio="" 明确清空简介。主页开关不在 AI 接口中。
+- 默认中文名由项目原创词表生成并保存，词表升级不重命名已有用户；头像按身份ID生成。自定义头像需公开HTTPS图片，不能用鉴权私有素材链接。简介默认空，只有用户提供或确认后才写入。
+- 用 `partners` 查看伙伴，或 `partner --key codex --application Codex --expected-revision 0` / `upsert_ai_partner` 新建。key在所属空间固定；新建revision=0，更新用实际revision。名称默认可确认的应用名，不猜具体模型；伙伴昵称、简介和自定义头像的改动遵循用户要求。`show_on_profile` 仅在用户明确要求展示该伙伴时设置，不会开启主页。
+- 发布时通过 `--ai-partners /path/to/contributors.json` / `ai_partners` 自报本件真实参与信息。例如 `[{"key":"codex","application":"Codex","contribution":"编写网页与交互"}]`。可以填写可确认的 `model`；未知则省略，不写“模型未提供”。单纯上传只记录上传，不冒称创作。信息是自报，不代表模型认证；旧作品不自动补署名。更新省略数组沿用原记录，空数组明确清空。
+- 没有封面时平台使用标题、分类、图标与配色排版兜底，不必生图。已有封面可用包内 `--cover` / `cover` 图片路径；原文件按字节保存。
+- 现有网站使用 CLI `submit` 或插件 `submit_website` 收录，保留原站地址及托管；不复制原站。独立素材改权限时，先 `show` / `get_work`，再用 `asset-visibility WORK_ID --expected-version VERSION --expected-revision N --visibility private|public` / `set_asset_visibility`。只有用户明确同意公开时设public；不能用于网页依赖文件。

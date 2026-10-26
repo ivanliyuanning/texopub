@@ -1,3 +1,4 @@
+import {defaultCreatorName} from './community.mjs';
 import {smsReady,mailReady,sendSms,checkSms,sendMail} from './providers.mjs';
 const T=()=>Math.floor(Date.now()/1000),ID=()=>crypto.randomUUID().replaceAll('-','');
 const E=new TextEncoder(),COOKIE='__Host-texopub';
@@ -28,7 +29,7 @@ export async function publisherAuth(r,e){
 }
 const maskedPhone=v=>v.slice(0,3)+'****'+v.slice(-4);
 const maskedMail=v=>v?v.slice(0,1)+'***@'+v.split('@')[1]:null;
-async function accountInfo(e,a){const p=await one(e,'SELECT * FROM publishers WHERE id=?',a.publisher_id);return {id:a.id,publisher_id:a.publisher_id,name:p.name,default_listing:p.default_listing,phone:maskedPhone(a.phone),email:maskedMail(a.email),email_bound:!!a.email,profile_public:!!a.profile_public,homepage:a.profile_public?appOrigin(e)+'/u/'+a.publisher_id+'/':null,reauth_required:a.verified_at<T()-900};}
+async function accountInfo(e,a){const p=await one(e,'SELECT * FROM publishers WHERE id=?',a.publisher_id);return {id:a.id,publisher_id:a.publisher_id,name:p.name,bio:p.bio||'',avatar_url:p.avatar_url||'',profile_revision:p.profile_revision||0,default_listing:p.default_listing,phone:maskedPhone(a.phone),email:maskedMail(a.email),email_bound:!!a.email,profile_public:!!a.profile_public,homepage:a.profile_public?appOrigin(e)+'/u/'+a.publisher_id+'/':null,reauth_required:a.verified_at<T()-900};}
 // Calendar months are clamped to the last day of the destination month.
 export function keyExpiry(b,at=T()){
  if(b.days!==undefined){const days=Number(b.days);if(!Number.isInteger(days)||days<1||days>3650)bad(400,'自定义有效期为1到3650天');return at+days*86400;}
@@ -74,7 +75,7 @@ async function verify(r,e){
  }
  a=await one(e,c.channel==='sms'?'SELECT * FROM accounts WHERE phone=?':'SELECT * FROM accounts WHERE email=?',c.subject);
  if(!a&&c.channel==='email')bad(400,'验证码不正确或邮箱尚未绑定');
- if(!a){const pid=ID(),aid=ID();try{await e.DB.batch([S(e,'INSERT INTO publishers(id,name,token_hash,created) VALUES(?,?,?,?)',pid,'新创作者','disabled:'+random(),T()),S(e,'INSERT INTO accounts(id,publisher_id,phone,created) VALUES(?,?,?,?)',aid,pid,c.subject,T())]);}catch(err){a=await one(e,'SELECT * FROM accounts WHERE phone=?',c.subject);if(!a)throw err;}if(!a)a=await one(e,'SELECT * FROM accounts WHERE id=?',aid);}
+ if(!a){const pid=ID(),aid=ID();try{await e.DB.batch([S(e,'INSERT INTO publishers(id,name,token_hash,created,name_source,lexicon_version) VALUES(?,?,?,?,?,?)',pid,defaultCreatorName(pid),'disabled:'+random(),T(),'generated',1),S(e,'INSERT INTO accounts(id,publisher_id,phone,created) VALUES(?,?,?,?)',aid,pid,c.subject,T())]);}catch(err){a=await one(e,'SELECT * FROM accounts WHERE phone=?',c.subject);if(!a)throw err;}if(!a)a=await one(e,'SELECT * FROM accounts WHERE id=?',aid);}
  const p=await one(e,'SELECT revoked FROM publishers WHERE id=?',a.publisher_id);if(p.revoked)bad(403,'此空间已停用');
  const token=random();await S(e,'INSERT INTO login_sessions(token_hash,account_id,created,expires) VALUES(?,?,?,?)',await sha(token),a.id,T(),T()+2592000).run();return out({logged_in:true},200,cookie(token));
 }
@@ -89,7 +90,7 @@ export async function accountRoutes(r,e,u){
  if(p==='/v1/account/logout'&&r.method==='POST'){await S(e,'DELETE FROM login_sessions WHERE token_hash=?',a.session_hash).run();return out({logged_out:true},200,cookie('',0));}
  if(p==='/v1/account/logout-all'&&r.method==='POST'){await S(e,'DELETE FROM login_sessions WHERE account_id=?',a.id).run();return out({logged_out:true},200,cookie('',0));}
  if(p==='/v1/account/profile'&&r.method==='POST'){
-  const b=await body(r),commands=[];if(b.name!==undefined){const name=String(b.name).trim();if(!name||name.length>80)bad(400,'名称需要1到80个字');commands.push(S(e,'UPDATE publishers SET name=? WHERE id=?',name,a.publisher_id));}
+  const b=await body(r),commands=[];if(b.name!==undefined){const name=String(b.name).trim();if(!name||name.length>80)bad(400,'名称需要1到80个字');commands.push(S(e,"UPDATE publishers SET name=?,name_source='custom',profile_revision=profile_revision+1 WHERE id=?",name,a.publisher_id));}
   if(b.public!==undefined){if(typeof b.public!=='boolean')bad(400,'请选择主页是否公开');commands.push(S(e,'UPDATE accounts SET profile_public=? WHERE id=?',b.public?1:0,a.id));}
   if(!commands.length)bad(400,'没有需要保存的设置');await e.DB.batch(commands);return out(await accountInfo(e,{...a,profile_public:b.public===undefined?a.profile_public:Number(b.public)}));
  }
