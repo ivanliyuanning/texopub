@@ -1,3 +1,4 @@
+import {loadingMarkup} from './loading.mjs';
 import {api,destination,safeLink} from './api.mjs';
 import {loginView,gateView,homepageControls,accountView,keySection,bindAccount,clearCredential} from './account.mjs';
 import {seed,creatorName,partnerName,avatarCells,safeUrl,escape as e} from './identity.mjs';
@@ -73,7 +74,7 @@ async function optionalAccount(){try{return await api('account')}catch(error){if
 async function loadPage(options={}){
  const number=++requestNumber,p=location.pathname;
  if(!options.preserveCredential)clearCredential();
- root.innerHTML='<div class="wrap"><p class="boot" role="status">正在打开 TexoPub…</p></div>';
+ root.innerHTML=loadingMarkup;
  const next={catalog:{items:[]},taxonomy:{groups:[]},materials:{items:[]},person:null,account:null,profileData:null,ownMaterials:[],assetWorks:[],keys:{items:[]},authStatus:{},documentHtml:''};
  try{
   lexicon ||= await json('/community/identity-lexicon.json');

@@ -569,6 +569,8 @@ def community_site(root, site):
     shutil.copy2(root / 'templates/plugin.html', target / 'plugin.html')
     shutil.copy2(root / 'templates/account-privacy.html', target / 'privacy.html')
     html = (root / 'templates/community/index.html').read_text()
+    loading_source = (target / 'loading.mjs').read_text().removeprefix('export const loadingMarkup = ').strip().removesuffix(';')
+    html = html.replace('<!-- COMMUNITY_LOADING -->', json.loads(loading_source))
     version = digest((target / 'app.mjs').read_bytes())[:12]
     html = html.replace('/community/app.mjs', '/community/app.mjs?v=' + version)
     routes = ['', 'materials', 'publish', 'for-ai', 'space', 'space/works', 'space/materials',

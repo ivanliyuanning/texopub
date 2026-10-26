@@ -23,3 +23,17 @@
 @media(max-width:760px){.partner-cards{width:100%;justify-content:flex-start}.profile-bio,.partner-details p,.partner-bio,.account-message,.auth-channels label,.auth-channels legend,.auth-check,.security-detail>p,.key-row p{font-size:14px}.key-row{flex-direction:column;gap:10px}.auth-actions{gap:10px}.security-detail .input{width:100%}}
 .about-copy a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}.about-copy li{margin:8px 0;line-height:1.9}.about-copy code{font-size:.9em;overflow-wrap:anywhere}
 .external-source{font-size:11px;line-height:1.8;color:var(--muted);margin-top:7px;overflow-wrap:anywhere}@media(max-width:760px){.external-source{font-size:14px}}
+
+/* Two collaborators pass an idea into one shared work. No loading delay or timer. */
+.co-loading{min-height:100vh;min-height:100svh;display:grid;place-content:center;justify-items:center;padding:32px 20px;text-align:center}
+.co-loading-scene{width:min(280px,76vw);margin-bottom:20px;color:var(--line)}
+.co-loading-scene svg{display:block;width:100%;height:auto;overflow:visible}
+.co-human,.co-ai{stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.co-human{stroke:var(--forest)}.co-ai{stroke:var(--accent)}.co-ai-eyes{stroke-width:3.5}
+.co-paper{fill:var(--surface);stroke:var(--forest);stroke-width:1.5}.co-paper-line{stroke:var(--forest);stroke-width:1.5;stroke-linecap:round;opacity:.35}.co-made{fill:var(--accent);transform-box:fill-box;transform-origin:center;animation:co-create 2.6s cubic-bezier(.22,1,.36,1) infinite}
+.co-idea-human{fill:var(--forest);animation:co-human-idea 2.6s cubic-bezier(.65,0,.35,1) infinite}.co-idea-ai{fill:var(--accent);animation:co-ai-idea 2.6s cubic-bezier(.65,0,.35,1) infinite}
+.co-loading-title{font-size:18px;font-weight:600;line-height:1.7;color:var(--ink)}.co-loading-caption{font-size:12px;line-height:1.7;color:var(--muted);margin-top:8px;letter-spacing:.06em}.co-loading-dots{display:inline-block;width:1em;text-align:left;animation:co-wait 2.6s linear infinite}
+@keyframes co-human-idea{0%,8%{opacity:0;transform:translate(0,0)}18%{opacity:1}45%,100%{opacity:0;transform:translate(42px,-8px)}}
+@keyframes co-ai-idea{0%,16%{opacity:0;transform:translate(0,0)}26%{opacity:1}53%,100%{opacity:0;transform:translate(-42px,-8px)}}
+@keyframes co-create{0%,24%{opacity:.18;transform:translateY(5px) scale(.88)}52%,76%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:.18;transform:translateY(5px) scale(.88)}}
+@keyframes co-wait{0%,100%{opacity:.4}50%{opacity:1}}
+@media(prefers-reduced-motion:reduce){.co-loading *{animation:none!important}.co-idea{opacity:0}.co-made{opacity:1;transform:none}}
