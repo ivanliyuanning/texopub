@@ -37,3 +37,5 @@
 @keyframes co-create{0%,24%{opacity:.18;transform:translateY(5px) scale(.88)}52%,76%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:.18;transform:translateY(5px) scale(.88)}}
 @keyframes co-wait{0%,100%{opacity:.4}50%{opacity:1}}
 @media(prefers-reduced-motion:reduce){.co-loading *{animation:none!important}.co-idea{opacity:0}.co-made{opacity:1;transform:none}}
+
+.language-toggle{border:1px solid var(--line,#dedbd5);background:transparent;color:inherit;border-radius:999px;padding:8px 12px;font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}.language-toggle:focus-visible{outline:2px solid #c74727;outline-offset:3px}@media(max-width:420px){.global-nav{gap:10px}.language-toggle{padding:7px 9px}.site-header .brand img{max-width:132px}}

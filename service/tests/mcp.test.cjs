@@ -71,3 +71,11 @@ test('external catalog and standalone asset permissions are fully AI controlled 
  const args={work_id:w.id,expected_version:w.version,expected_revision:w.revision,visibility:'public'};assert((await tool('set_asset_visibility',args,ro.access_token)).isError);const pub=await tool('set_asset_visibility',args,g.access_token);assert(!pub.isError,JSON.stringify(pub));const content=await mf.getWorker('content');const raw=await content.fetch(pub.structuredContent.url);assert.equal(await raw.text(),'file-original-bytes');assert.equal(pub.structuredContent.version,w.version);assert((await tool('set_asset_visibility',args,g.access_token)).isError);
  w=pub.structuredContent;const closed=await tool('set_asset_visibility',{work_id:w.id,expected_version:w.version,expected_revision:w.revision,visibility:'private'},g.access_token);assert(!closed.isError,JSON.stringify(closed));assert.equal((await content.fetch(w.url)).status,404);
 });
+
+test('English OAuth consent and connections preserve names, scopes and security controls',async()=>{
+ const a=await account(),c=await start(a),english=await req(c.url,undefined,{Cookie:a.cookie+'; texopub_lang=en'});
+ assert.equal(english.status,200);assert.match(english.data,/<html lang="en">/);assert.match(english.data,/Allow MCP test to access your TexoPub space/);assert.match(english.data,/测试作者/);assert.match(english.data,/No access to your phone number/);assert.match(english.data,/name="ticket"/);assert.match(english.headers.get('Content-Security-Policy'),/nonce-/);
+ const list=await req(app+'/api/oauth/connections',undefined,{Cookie:a.cookie+'; texopub_lang=en'});assert.match(list.data,/Connected plugins/);assert.match(list.data,/No connected plugins yet/);
+ const zh=await req(c.url,undefined,{Cookie:a.cookie+'; texopub_lang=zh','Accept-Language':'en-US'});assert.match(zh.data,/<html lang="zh-CN">/);assert.match(zh.data,/允许 MCP test/);
+ const header=await req(c.url,undefined,{Cookie:a.cookie,'Accept-Language':'en-US'});assert.match(header.data,/<html lang="en">/);
+});

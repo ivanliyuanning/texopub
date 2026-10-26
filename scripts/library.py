@@ -568,6 +568,9 @@ def community_site(root, site):
     shutil.copy2(root / 'service/identity-lexicon.json', target / 'identity-lexicon.json')
     shutil.copy2(root / 'templates/plugin.html', target / 'plugin.html')
     shutil.copy2(root / 'templates/account-privacy.html', target / 'privacy.html')
+    sys.path.insert(0, str(root / 'scripts'))
+    from localize import localize_community
+    localize_community(root, target)
     html = (root / 'templates/community/index.html').read_text()
     loading_source = (target / 'loading.mjs').read_text().removeprefix('export const loadingMarkup = ').strip().removesuffix(';')
     html = html.replace('<!-- COMMUNITY_LOADING -->', json.loads(loading_source))
@@ -576,8 +579,13 @@ def community_site(root, site):
     app.write_text(app.read_text().replace("'./loading.mjs'", "'./loading.mjs?v=" + loading_version + "'"))
     style_version = digest((target / 'style.css').read_bytes())[:12]
     html = html.replace('/community/style.css', '/community/style.css?v=' + style_version)
-    version = digest((target / 'app.mjs').read_bytes())[:12]
-    html = html.replace('/community/app.mjs', '/community/app.mjs?v=' + version)
+    # One content hash for the full module graph prevents mixed-language/stale imports.
+    version = digest(b''.join(p.read_bytes() for p in sorted(target.rglob('*.mjs'))))[:12]
+    for module in target.rglob('*.mjs'):
+        source = module.read_text()
+        source = re.sub(r"(from |import\()(['\"])(\./[^'\"]+?\.mjs)(?:\?v=[a-f0-9]+)?(['\"])", lambda m: m[1]+m[2]+m[3]+'?v='+version+m[4], source)
+        module.write_text(source)
+    html = html.replace('/community/entry.mjs', '/community/entry.mjs?v=' + version)
     routes = ['', 'materials', 'publish', 'for-ai', 'space', 'space/works', 'space/materials',
               'space/settings', 'space/settings/keys', 'space/account', 'login', 'u', 'profile',
               'about', 'plugins/texopub', 'account-privacy']
