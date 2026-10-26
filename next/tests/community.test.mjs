@@ -10,9 +10,8 @@ const fixtures={};for(const [file,key] of [['catalog.json','catalog'],['material
 fixtures.taxonomy=JSON.parse(await readFile(new URL('../../taxonomy.json',import.meta.url)));
 const source=(await readFile(new URL('../src/app.mjs',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
 async function open(path='/',options={}){
- const dom=new JSDOM('<div id="app"></div><dialog id="handoff"></dialog>',{url:'http://localhost:8770'+path,runScripts:'outside-only'});const w=dom.window,calls=[],copies=[];
+ const dom=new JSDOM('<div id="app"></div>',{url:'http://localhost:8770'+path,runScripts:'outside-only'});const w=dom.window,calls=[],copies=[];
  w.testDeps={seed,creatorName,partnerName,avatarCells,safeUrl,escape,icon};w.matchMedia=()=>({matches:false});w.scrollTo=()=>{};
- w.HTMLDialogElement.prototype.showModal=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'))};
  Object.defineProperty(w.navigator,'clipboard',{value:{writeText:async text=>copies.push(text)}});
  w.fetch=async(url,init)=>{calls.push({url,init});if(options.fail)throw Error('offline');const key=String(url).includes('identity-')?'lexicon':String(url).includes('taxonomy')?'taxonomy':String(url).includes('materials')?'materials':'catalog';const data=structuredClone(fixtures[key]);if(options.malicious&&key==='catalog'){data.items[0].title='<img src=x onerror="window.compromised=true">';data.items[0].summary='<script>evil()</script>'}return {ok:true,json:async()=>data}};
  await w.eval('(async()=>{const {seed,creatorName,partnerName,avatarCells,safeUrl,escape:e,icon:i}=globalThis.testDeps;'+source+'})()');
@@ -36,10 +35,10 @@ test('profile differentiates human and AI identity and omits empty biography/mod
  const c=await open('/u/preview/');assert.match(c.d.querySelector('.identity-role').textContent,/人类创作者/);assert.match(c.d.querySelector('.partner-person').textContent,/Codex/);assert.equal(c.d.querySelectorAll('.partner-person .icon').length,1);assert(!c.d.querySelector('#main').textContent.includes('模型未提供'));assert(!c.d.querySelector('.profile-bio'));c.close();
 });
 test('workspace explains AI editing inline without action or copy controls',async()=>{
- const c=await open('/space/works/');assert.equal(c.d.querySelectorAll('[data-ai],[data-copy-url],.work-card button').length,0);assert.equal(c.d.querySelectorAll('select').length,0);assert.equal(c.d.querySelectorAll('.ai-notice').length,1);assert.match(c.d.querySelector('.ai-notice').textContent,/不提供手动修改和编辑功能/);assert.match(c.d.querySelector('.ai-notice').textContent,/作品标题或网址/);assert(c.calls.every(x=>!x.init?.method||x.init.method==='GET'));assert.equal(c.d.querySelectorAll('.work-card').length,3);c.close();
+ const c=await open('/space/works/');assert.equal(c.d.querySelectorAll('[data-ai],[data-copy-url],.work-card button').length,0);assert.equal(c.d.querySelectorAll('select').length,0);assert.equal(c.d.querySelectorAll('.ai-notice').length,1);assert.match(c.d.querySelector('.ai-notice').textContent,/作品标题或网址/);assert(c.calls.every(x=>!x.init?.method||x.init.method==='GET'));assert.equal(c.d.querySelectorAll('.work-card').length,3);c.close();
 });
-test('publish methods and tasks produce different prompts, with no pretend completion',async()=>{
- const c=await open('/publish/');c.d.querySelector('[data-publish-kind="asset"]').click();assert.match(c.d.querySelector('#publish-prompt').value,/默认私有/);c.d.querySelector('[data-publish-method="agent"]').click();assert.match(c.d.querySelector('.publish-stage').textContent,/读取公开 Skill/);assert.equal(c.d.querySelector('[data-copy-publish]'),null);assert.match(c.d.querySelector('.publish-explanation').textContent,/把具体需求告诉已连接的 AI/);assert(c.calls.every(x=>!x.init?.method));assert.equal(c.d.querySelectorAll('[data-ai]').length,0);c.close();
+test('publishing is a passive guide with both AI connection paths and no workflow controls',async()=>{
+ const c=await open('/publish/');assert.equal(c.d.querySelectorAll('main button,main textarea,main input,main select').length,0);assert(c.d.querySelector('a[href="https://texopub.com/plugins/texopub/"]'));assert(c.d.querySelector('a[href="https://texopub.com/for-ai/SKILL.md"]'));assert.match(c.d.querySelector('.help-details').textContent,/独立素材默认私有/);assert(c.calls.every(x=>!x.init?.method));assert.equal(c.copies.length,0);c.close();
 });
 test('login preview sends no OTP and clearly separates entry into preview workspace',async()=>{
  const c=await open('/login/');const initial=c.calls.length;c.d.querySelector('[data-preview-code]').click();assert.match(c.d.querySelector('#login-feedback').textContent,/不会发送验证码/);c.d.querySelector('#login-preview').dispatchEvent(new c.w.Event('submit',{bubbles:true,cancelable:true}));assert.equal(c.calls.length,initial);assert.match(c.d.querySelector('#login-feedback').textContent,/没有提交手机号或验证码/);c.close();
@@ -47,6 +46,16 @@ test('login preview sends no OTP and clearly separates entry into preview worksp
 test('preview load failure has retry rather than a stale successful-looking gallery',async()=>{
  const c=await open('/',{fail:true});assert.equal(c.d.querySelectorAll('[data-work]').length,0);assert(c.d.querySelector('#retry-load'));assert.match(c.d.querySelector('h1').textContent,/无法读取/);c.close();
 });
-test('product pages have one passive contextual notice and local private fixture assets',async()=>{
- for(const path of ['/','/u/preview/','/space/','/space/works/','/space/materials/','/space/settings/','/space/settings/keys/','/materials/','/about/']){const c=await open(path);assert(c.d.querySelector('main'));assert.equal(c.d.querySelector('#retry-load'),null,path);assert.equal(c.d.querySelectorAll('[data-ai],[data-copy-url],[data-copy-handoff]').length,0,path);assert.equal(c.d.querySelectorAll('.ai-notice').length,1,path);const notice=c.d.querySelector('.ai-notice');assert.equal(notice.querySelectorAll('button,textarea,input').length,0);assert.equal(notice.nextElementSibling,null);assert.equal(notice.querySelector('a').getAttribute('href'),'/publish/');const text=notice.textContent;if(path==='/space/settings/')assert.match(text,/默认展示范围/);if(path==='/space/settings/keys/')assert.match(text,/登录和授权由你本人完成/);if(path==='/space/materials/')assert.match(text,/素材名称/);if(path==='/space/materials/'){assert.equal(c.d.querySelectorAll('.material').length,1);assert.match(c.d.querySelector('.material-preview').getAttribute('href'),/^\/data\//)}c.close()}
+test('whole-site actions are browsing or human authorization; editing notices stay concise and relevant',async()=>{
+ const notices=new Set();
+ for(const path of ['/','/u/preview/','/space/','/space/works/','/space/materials/','/space/settings/','/space/settings/keys/','/materials/','/about/','/publish/','/login/','/missing/']){
+  const c=await open(path);assert(c.d.querySelector('main'));assert.equal(c.d.querySelector('#retry-load'),null,path);assert.equal(c.d.querySelectorAll('[data-ai],[data-copy-url],[data-copy-handoff],.work-card button,.material button,.settings-panel button').length,0,path);
+  const relevant=['/','/u/preview/','/space/','/space/works/','/space/materials/','/space/settings/'].includes(path);assert.equal(c.d.querySelectorAll('.ai-notice').length,relevant?1:0,path);
+  if(relevant){const notice=c.d.querySelector('.ai-notice'),text=notice.querySelector('p').textContent;assert.equal(notice.querySelectorAll('button,textarea,input').length,0);assert.equal(notice.nextElementSibling,null);assert.equal(notice.querySelector('a').getAttribute('href'),'/publish/');assert(text.length<=45);assert(!notices.has(text));notices.add(text);if(path==='/space/settings/')assert.match(text,/默认展示范围/);if(path==='/space/materials/')assert.match(text,/素材/)}
+  if(path==='/space/materials/'){assert.equal(c.d.querySelectorAll('.material').length,1);assert.equal(c.d.querySelectorAll('.material a').length,1);assert.match(c.d.querySelector('.material-preview').getAttribute('href'),/^\/data\//)}
+  if(path==='/space/settings/keys/'){assert(c.d.querySelector('a[href="https://texopub.com/for-ai/SKILL.md"]'));assert(c.d.querySelector('a[href="https://texopub.com/api/oauth/connections"]'))}
+  if(path==='/materials/'){const more=c.d.querySelector('[data-more-materials]');assert(more);more.click();assert.equal(c.d.querySelectorAll('.material').length,48)}
+  if(!['/','/materials/','/login/'].includes(path))assert.equal(c.d.querySelectorAll('main button').length,0,path);
+  assert(c.calls.every(x=>!x.init?.method));c.close();
+ }
 });
