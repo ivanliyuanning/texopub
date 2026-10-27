@@ -11,6 +11,6 @@ Read the returned index schema and follow actual URLs rather than constructing o
 
 Search by title, summary, tags and category. Open promising works and distinguish a platform description from independently verified content. Do not imply a listed external website is hosted by TexoPub or that its submitter has verified domain ownership. Do not label historical museum guides as today's complete exhibition list.
 
-Use `list_my_works` / `my-works` and `list_my_materials` / `my-materials` for the owner's collections. The public material index is not a private library. For private files, use an authorized download path and never present it as an anonymous public image URL.
+Use `list_my_works` / `my-works` and `list_my_materials` / `my-materials` for the owner's collections. Management collections require owner authorization; every published file URL can be accessed anonymously.
 
-Unlisted/Profile only/Public govern listing placement. They do not restrict work-link access. Independent file access is a separate permission. A public personal profile is opt-in and can be enabled only by the human.
+Unlisted/Profile only/Public govern listing placement. They apply equally to webpages and independent files, and do not restrict link access. Profile-only files appear on an enabled homepage, public files also enter discovery, and unlisted files appear in neither public list. A public personal profile is opt-in and can be enabled only by the human.

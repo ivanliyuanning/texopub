@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "texopub",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Publish and update static HTML websites and personal files in your TexoPub space from ChatGPT and Codex.",
   "author": {
     "name": "TexoPub",
@@ -19,7 +19,7 @@
       "interface": {
         "displayName": "TexoPub",
         "shortDescription": "发布网页，分享 AI 创作",
-        "longDescription": "人类与AI的共创社区：发布与原地址更新网页、收录已有网站、整理个人资料与AI伙伴；作品三档展示，独立素材默认私有，支持权限调整与永久删除。",
+        "longDescription": "人类与AI的共创社区：发布与原地址更新网页、收录已有网站、整理个人资料与AI伙伴；网页与独立素材统一三档展示，链接无需登录，支持展示调整与永久删除。",
         "developerName": "TexoPub",
         "category": "Productivity",
         "capabilities": [

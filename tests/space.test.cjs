@@ -2,7 +2,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {open,settle,submit}=require('./helpers/community.cjs');
 test('my overview and complete work list are owner scoped and cannot fallback to public materials',async()=>{
- for(const path of ['/space/','/space/works/','/space/materials/']){const c=await open(path);assert(!c.calls.some(x=>x.p==='catalog'||x.p==='materials'));assert.equal(c.d.querySelectorAll('.work-card button,.material button').length,0);assert.equal(c.d.querySelector('h1 script'),null);if(path==='/space/materials/')assert.match(c.d.querySelector('.material').textContent,/仅自己可访问/);c.close()}
+ for(const path of ['/space/','/space/works/','/space/materials/']){const c=await open(path);assert(!c.calls.some(x=>x.p==='catalog'||x.p==='materials'));assert.equal(c.d.querySelectorAll('.work-card button,.material button').length,0);assert.equal(c.d.querySelector('h1 script'),null);if(path==='/space/materials/')assert.match(c.d.querySelector('.material').textContent,/不展示/);c.close()}
 });
 test('login is separate and gated workspace performs no private reads',async()=>{const c=await open('/space/settings/keys/',{logged:false});assert(!c.calls.some(x=>x.p==='me/profile'||x.p==='account/keys'));assert(c.d.querySelector('.error-panel a[href^="/login/"]'));assert.equal(c.d.querySelectorAll('.ai-notice,input').length,0);c.close()});
 test('homepage visibility requires a deliberate human submission; name and preferences remain AI managed',async()=>{

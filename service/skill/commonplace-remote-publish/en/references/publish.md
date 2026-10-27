@@ -26,10 +26,10 @@ The public listing example below applies only after the user has selected Public
 ```sh
 python3 scripts/commonplace.py --credential /private/path/credential.json publish /path/to/site --slug my-guide --title 'My guide' --summary 'A useful illustrated guide' --category humanities/museums --icon /path/to/icon.svg --format guide --listing public
 python3 scripts/commonplace.py --credential /private/path/credential.json publish /path/to/site --slug my-guide --update --title 'My guide' --category humanities/museums --format guide
-python3 scripts/commonplace.py --credential /private/path/credential.json assets /path/to/file.pdf --slug reference-file --title 'Reference file'
+python3 scripts/commonplace.py --credential /private/path/credential.json assets /path/to/file.pdf --slug reference-file --title 'Reference file' --listing unlisted
 ```
 
-The first update must target the same owned work, preserving its slug and URL. Read `publish --help` and `submit --help` for optional cover, author, tags, license, contributor and expected-version arguments. Use `submit` to list an existing website without moving its hosting. Independent files default to private; use `--public` only after explicit authorization.
+The first update must target the same owned work, preserving its slug and URL. Read `publish --help` and `submit --help` for optional cover, author, tags, license, contributor and expected-version arguments. Use `submit` to list an existing website without moving its hosting. Independent files share webpage listing controls: pass the confirmed --listing unlisted|profile|public. All published links are accessible without login. New content uses the space default; omitted listing on update preserves its current value. --public is a legacy alias for --listing public.
 
 ## MCP publishing
 
@@ -47,7 +47,7 @@ Read `get_my_profile` before editing creator details or AI partner cards. Use `u
 
 ## Visibility and preferences
 
-`set_work_listing` changes one work's list placement after reading its current version/revision. `set_publish_preferences` changes future defaults only. `set_asset_visibility` changes the actual private/public access of an independent-file work after reading its current version/revision. User-owned public-profile authorization is not included in these tools.
+`set_work_listing` changes one work's list placement after reading its current version/revision. `set_publish_preferences` changes future defaults only. `set_work_listing` also handles standalone assets. `set_asset_visibility` is a legacy listing alias: visibility=private means unlisted, without authentication on reads. Prefer listing; use the current version/revision and reject conflicting arguments. User-owned public-profile authorization is not included in these tools.
 
 For CLI equivalents, read the current `listing`, `preferences` and `asset-visibility` help and use the target's real current guards. On 409, reread and confirm the intended change still applies. The initial space default is public; an update with no listing keeps the previous value.
 
@@ -65,6 +65,6 @@ Use `draft` for the CLI version argument when the draft has no published version
 
 Retry transient network/service failures with the same session and idempotency key. For 401/403, verify the correct account, connection and scope. For 409, reread the latest target. For size/schema errors, correct the package without losing or degrading original assets. Keep the actual receipt and explain a concrete persistent blocker.
 
-Independently reread metadata and open the returned URL. Check content, links, icon, category, cover, contributions, listing and original bytes. Verify access for private files with and without authorization. A successful HTTP response is not interactive or mobile-device validation.
+Independently reread metadata and open the returned URL. Check content, links, icon, category, cover, contributions, listing and original bytes. Verify anonymous GET/HEAD/Range, correct profile/discovery inclusion and original file bytes. Legacy /api/v1/me/assets and /api/v1/me/files links remain anonymous read aliases; management, drafts, archives and deletions retain their lifecycle restrictions. A successful HTTP response is not interactive or mobile-device validation.
 
 There is no ordinary-user metadata-only endpoint for changing a published work's title/summary/cover/credits without a new complete version, no AI-partner deletion tool and no single-abandoned-version cleanup tool. Use a complete update when its full source is available; never construct an empty package. Owner-only maintenance is not a public capability.

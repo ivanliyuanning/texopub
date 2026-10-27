@@ -1,3 +1,13 @@
+# 统一展示范围（Skill 2.3.0 / MCP 0.4.0 / 插件0.5.0，2026-10-27）
+
+网页、网页依赖与独立素材一经提交发布，均可凭链接匿名访问。`unlisted`不进公开列表，`profile`只进已开启的个人主页，`public`进入发现及已开启主页；独立素材的发现入口为公开素材目录。管理列表、上传、修改、删除仍需所属账号授权，未提交草稿、归档和永久删除仍不可访问。以下旧版本的“素材私有”描述已由本节取代。
+
+REST/CLI/MCP使用统一listing。新内容采用空间default_listing（初始public），更新省略沿用原值；素材更新同样保留URL和范围。CLI assets支持--listing，MCP upload_asset支持listing，set_work_listing统一调整网页和独立素材。旧--public、asset-visibility、set_asset_visibility及REST /visibility保留兼容，visibility=private仅映射unlisted，public映射public，可用profile/unlisted；同传冲突listing会拒绝。旧 /api/v1/me/assets/{id} 和 /api/v1/me/files/{version}/{path} 是匿名GET/HEAD/Range读取别名，不再要求所属账号登录。
+
+迁移 `0008_unified_listing.sql` 将旧private素材转unlisted、移除works/versions的visibility，保留历史版本和原字节；为受影响素材增加revision，使迁移前草稿不能覆盖新范围。SQL重复执行无变化。部署前备份受影响记录与Worker版本；回退代码不能自动回退数据。个人主页API新增materials数组，items仍只含网页；关闭主页继续404，联系方式和密钥仍不返回。
+
+修改MCP schema/说明后，更新公共/本机Skill、插件包、OpenAPI和双语界面，再刷新既有连接工具并新对话实测。验收和部署记录见项目任务进度、`evidence/unified-listing-20261027/`。
+
 # 发布技能能力审计（Skill 2.1.1 / 通用插件0.3.1 / 个人插件1.2.1）
 
 本轮只修订说明与包，不改变后端或20个MCP工具协议（服务版本仍0.3.0）。公开/本机Skill、两份操作参考、CLI副本、OpenAPI、通用与现有个人插件包同步。入口按任务列出20工具及CLI对照，操作参考解释完整新版包、字段保留规则、各客户端图标差异、伙伴名片与作品署名、版本/权限/删除核验。移除“MCP尚未提供”、旧人工编辑页面和仅能联系所有者清理等过时描述。
@@ -80,7 +90,7 @@ MCP共20工具，新增get_my_profile、update_my_profile、upsert_ai_partner、
 - `accounts.mjs`：同源安全 Cookie 会话（30天）、CSRF、5分钟/5次验证码、每号码每分钟/每日及IP/全站限流、独立有期限/可撤销/只读密钥、旧身份凭证证明、换绑与全设备退出。
 - `providers.mjs`：阿里云号码认证 `SendSmsVerifyCode` / `CheckSmsVerifyCode`（仅以 `Model.VerifyResult=PASS` 成功，检查OutId），DirectMail `SingleSendMail` 备用邮箱发送。Web Crypto RPC签名通过官方测试向量。不会返回或记录短信验证码。
 - `migrations/0002_accounts.sql`：只增表与索引，不覆盖旧发布者和作品。旧日常密钥继续有效，可登录后证明旧身份归属、创建新密钥并撤销旧key；不能按同名认领内容。
-- 新 `kind=asset` 默认私有，版本/稳定文件下载都经所属账号鉴权，主内容域匿名读取拒绝。网页依赖仍公开；已有公开记录没有visibility字段时保持公开。
+- `kind=asset`现使用统一listing，已发布文件均可匿名读取；原private记录迁为unlisted，不进公开列表（见文首）。
 - 浏览器账号API仅在 `APP_ORIGIN` 接受，变更须 `Origin` 匹配及 `X-TexoPub-Request: space`。通过主站 `/api/*` Worker route 提供同源服务；普通Bearer密钥不能管理账号。
 - 初始 `SMS_TOTAL_LIMIT=1000` 为整站累计发送上限（按请求保守计数，包括失败），默认 `SMS_DAILY_LIMIT=100`；邮件另以 `MAIL_TOTAL_LIMIT=2000`、`MAIL_DAILY_LIMIT=100` 限制，预算标识 `MAIL_BUDGET_ID`；达到上限停止发送，不自动续购。预算重置必须在确认新额度后使用新 `SMS_BUDGET_ID`。云厂商自己的测试短信或其他应用不在此计数内，实际账户资金限制仍由所有者管理。
 - 当前使用个人免资质 PNVS 赠送签名【恒创联众】及模板 100001，官方限制不能修改签名/模板。要使用品牌签名须另走合规资质、签名审核与对应服务接入，不能直接替换 SMS_SIGN_NAME。个人指南：https://help.aliyun.com/zh/pnvs/use-cases/sms-verify-for-individual-developers
@@ -180,7 +190,7 @@ node tests/directory.test.cjs
 
 `migrations/0006_lifecycle.sql`为旧库增列和工作锁表，新库schema同步；不改已有作品，listing默认public。works保留deleted_at/delete_complete/deletion_version/delete_bytes，完成后只保留地址/归属与删除回执，不保留正文或版本。每次删除最多200个object_key，先关闭访问再删R2，R2成功后才删files引用，所有文件清完才删versions并释放total_bytes额度。失败保留待清理状态并可重试。work_operations串行化同作品上传和清理，异常finally解锁，崩溃锁15分钟到期；调用重试时不能绕过有效锁。新对象按publisher/work/hash分区；旧跨作品共享对象仅在没有其他未删除内容引用时删除。
 
-listing独立存works，revision随提交或展示变更递增；versions.base_revision阻止旧草稿覆盖后来修改的展示范围。public进入catalog/materials，profile/public进入已开启profile，unlisted均不收录；链接及依赖始终可访问。独立素材private权限保持原样。get_my_space返回default_listing，普通发布密钥与OAuth可修改本人默认值。
+listing独立存works，revision随提交或展示变更递增；versions.base_revision阻止旧草稿覆盖后来修改的展示范围。public进入catalog/materials，profile/public进入已开启profile，unlisted均不收录；链接及依赖始终可访问。独立素材已统一listing（见文首）。get_my_space返回default_listing，普通发布密钥与OAuth可修改本人默认值。
 
 旧苏博原始同源阅读路径由内容Worker先检查作品生命周期，再代理原Pages正文，以保留存储和交互；该路由不得继续绕过Worker。以前已经独立公开的素材/第三方副本不作为删除某份作品的独占文件。
 

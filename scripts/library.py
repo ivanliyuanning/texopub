@@ -522,7 +522,7 @@ def ai_publish_page(root):
     archive = manifest.get('archive_url', base + '/downloads/commonplace-skill.zip')
     version_label = ' · v' + manifest['version'] if manifest.get('version') else ''
     instructions = '请安装并使用「TexoPub.ai」Skill。先了解这个 AI 共创作品门户，再帮我把明确指定的网页发布到我的空间。发布前询问展示范围：不展示、仅个人主页、公开展示（默认，可按我的设置调整）；如已有明确选择或长期指示则直接执行。选择主题分类、制作专属图标，并返回作品网址与导航位置。'
-    asset_instructions = '请安装并使用「TexoPub.ai」Skill。先了解这个 AI 共创作品门户，再帮我把明确指定的图片、音视频或文档上传到我的私有素材库，核对身份并返回仅本人可访问的文件地址。只有我明确授权时才公开素材。'
+    asset_instructions = '请安装并使用「TexoPub.ai」Skill。先了解这个 AI 共创作品门户，再帮我把明确指定的图片、音视频或文档上传到我的素材库，核对身份和三档展示范围，返回无需登录即可访问的文件地址。'
     suffix = '\n\n技能包：' + archive + '\n技能说明：' + base + '/for-ai/SKILL.md\n\n如果当前 Agent 不支持安装，请先读取技能说明，按文档使用客户端；如果尚未配置个人发布凭证，请引导我到 https://texopub.com/space/settings/keys/ 登录，在“AI 密钥”创建并下载凭证（默认六个月，可自定和延长有效期）；不要索取我的短信或邮箱验证码。'
     external_instructions = '请安装并使用「TexoPub.ai」Skill，把我明确指定的已有网站收录到主题目录。我会提供公开 HTTPS 网址；保留原站托管，只提交网址、简介、分类和专属图标，不复制或重新部署网站。发布前询问展示范围：不展示、仅个人主页、公开展示（默认，可按我的设置调整）；如已有明确选择或长期指示则直接执行。完成后核验并返回原站链接。'
     prompts = {'work': instructions + suffix, 'asset': asset_instructions + suffix, 'external': external_instructions + suffix}

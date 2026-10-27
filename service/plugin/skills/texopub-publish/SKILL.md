@@ -21,20 +21,20 @@ Use the TexoPub MCP tools. They run in the cloud and cannot read a local filesys
 | Catalog/update an existing external site | `list_categories`; `get_work` for updates | `submit_website` |
 | Upload/update one standalone file | `get_work` for updates | `upload_asset` |
 | Publish a larger complete site | `inspect_files` in batches | `prepare_upload` → `upload_file` → `commit_upload` |
-| Change existing website listing | `get_work` | `set_work_listing` |
+| Change webpage or independent-file listing | `get_work` | `set_work_listing` |
 | Change future default listing | `get_my_space` | `set_publish_preferences` |
-| Change standalone asset access | `get_work` | `set_asset_visibility` |
+| Legacy standalone asset listing | `get_work` | `set_asset_visibility` |
 | Close access / permanently delete | `get_work` | `archive_work` / `delete_work` respectively |
 
 `get_work` reads only owned content, including drafts/archives. It is not an arbitrary public-work reader. A connected plugin uses OAuth; do not require a separate API key or ask for a verification code/cookie. The website is a read/display community with human login, homepage opt-in and credential management; content editing belongs in AI.
 
 ## Listing choice and permanent deletion
 
-Before each website publication ask: “展示在哪里？不展示 / 仅个人主页 / 公开展示（默认）”. Read `get_my_space.default_listing` for the default suggestion. If the user already chose in the request or gave an applicable standing instruction, follow it without asking again. A suggested default is not an answer; when a reply is needed, wait for it. Initial default is `public`; the user may ask to change it using `set_publish_preferences(default_listing)` without changing existing works or opening their homepage. Changing a default alone does not suppress the publication question.
+Before each webpage publication or independent-file upload ask: “展示在哪里？不展示 / 仅个人主页 / 公开展示（默认）”. Read `get_my_space.default_listing` for the default suggestion. If the user already chose in the request or gave an applicable standing instruction, follow it without asking again. A suggested default is not an answer; when a reply is needed, wait for it. Initial default is `public`; the user may ask to change it using `set_publish_preferences(default_listing)` without changing existing works or opening their homepage. Changing a default alone does not suppress the publication question.
 
-`listing: unlisted` = 不展示 (only in the owner's management collection); `profile` = 仅个人主页 (only on their enabled personal homepage); `public` = 公开展示 (homepage and TexoPub discovery). All three modes keep the URL and dependencies accessible to anyone with the link. These are listing controls, not private authentication. Standalone assets retain their separate private/public access rules. Do not enable a personal homepage automatically.
+`listing: unlisted` = 不展示 (only in the owner's management collection); `profile` = 仅个人主页 (only on their enabled personal homepage); `public` = 公开展示 (homepage and TexoPub discovery). All three modes keep the URL and dependencies accessible to anyone with the link. These are listing controls, not private authentication. Webpages and standalone assets share these listing rules and the space default; every published link allows anonymous access. Do not enable a personal homepage automatically.
 
-Pass listing to `publish_website` or `prepare_upload`. Updates that omit it keep the work's existing value. To change it without uploading files, read `get_work`, then call `set_work_listing(work_id, expected_version, expected_revision, listing)`.
+Pass listing to `publish_website`, `prepare_upload`, `submit_website` or `upload_asset`. Updates that omit it keep the work's existing value. To change it without uploading files, read `get_work`, then call `set_work_listing(work_id, expected_version, expected_revision, listing)`.
 
 When explicitly asked to permanently delete, read `get_work` then call `delete_work(work_id, expected_version, confirm=true)`. A draft's version may be null. Deletion is irreversible: it closes access, removes every historical version and files not used by other content, and releases quota after completion. If `deleted=false` continue using the exact same parameters until `deleted=true`; retry errors using those same parameters. Do not report success early. The small address tombstone remains so old URLs cannot point to someone else's future work. `archive_work` only closes access and retains history/quota, so it is not permanent deletion. Clean up disposable test publications with `delete_work` after acceptance.
 
@@ -59,7 +59,7 @@ Updates submit a complete new version, not a patch. Include all retained pages/d
 
 ## Independent files
 
-Use `upload_asset` with an authorized conversation file. Omit `visibility` for private storage. Set `visibility: public` only when the user authorizes public access; a private asset URL requires owner authentication and is not an anonymous image or download URL. Images needed by a public webpage should be included in that webpage's file package. When uploading a replacement version, explicitly send the intended `visibility`; omitting it uses private, rather than guaranteeing the previous permission. To change only permission, use `set_asset_visibility` without reuploading.
+Use `upload_asset` with an authorized conversation file and the confirmed `listing: unlisted|profile|public`. New files use the space default (initially public); updates that omit listing preserve the existing value and URL. All published files are accessible by link without login, including images used elsewhere. Use `set_work_listing` to change placement without reuploading bytes. `set_asset_visibility` remains a compatibility alias accepting listing; legacy visibility=private only means unlisted, and visibility=public means public. Conflicting fields are rejected. Old /api/v1/me/assets and /api/v1/me/files URLs remain anonymous read aliases. Drafts, archived and deleted content are unavailable; owner management and mutation still require authorization.
 
 ## Account and removal
 
@@ -72,7 +72,7 @@ If connection is required, let the host launch OAuth and have the user sign in o
 
 TexoPub is a human and AI co-creation community. Its website displays content; editing is performed by AI. Human login, homepage opt-in, API-key issuance and OAuth approval remain on the website.
 
-Use `get_my_profile` before `update_my_profile`. Supply the current `expected_revision`, change only fields the user requested, and reread on conflict. `name: null` restores the stable generated name; `avatar_url: ""` restores the generated avatar; `bio: ""` clears the biography. Add a biography only when provided or confirmed by the user. Custom avatars must be public HTTPS images, never private authenticated file URLs. Profile tools cannot enable the homepage.
+Use `get_my_profile` before `update_my_profile`. Supply the current `expected_revision`, change only fields the user requested, and reread on conflict. `name: null` restores the stable generated name; `avatar_url: ""` restores the generated avatar; `bio: ""` clears the biography. Add a biography only when provided or confirmed by the user. Custom avatars must be anonymously accessible HTTPS images. Profile tools cannot enable the homepage.
 
 Read `get_my_profile` first and reuse the matching client’s existing partner key. Use `upsert_ai_partner` to register or update an owned partner: stable `key`, a confirmed `application` name, and that partner’s current `expected_revision` (0 for new), not the human profile revision. Omitted name defaults to the application. Only set a nickname, biography, custom avatar or `show_on_profile` when covered by the user's request. This is self-reported identity, not verified model attribution.
 
@@ -84,7 +84,7 @@ Cover generation is optional. Pass a packaged image path as `cover`, or allow th
 
 Use `submit_website` for an existing public HTTPS website. Supply its URL, category and dedicated icon; do not copy the original site's files or change its hosting. Updates use the original work identity and current version.
 
-Use `set_asset_visibility` only for an owned standalone asset, after `get_work`; pass current version/revision. Public access requires the user's explicit request. This changes permissions without replacing bytes. It does not apply to a webpage's dependencies.
+Use `set_work_listing` for an owned webpage or standalone asset after `get_work`; pass current version/revision. This changes only list placement without replacing bytes. A webpage dependency follows its parent listing.
 
 ## Current capability boundaries and verification
 

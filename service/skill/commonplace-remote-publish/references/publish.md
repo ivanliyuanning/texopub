@@ -14,7 +14,7 @@ python3 scripts/commonplace.py --credential /private/path/credential.json show W
 
 `show` / `get_work`只读本人作品，包括草稿和归档，不是任意公开作品读取工具。公开内容用catalog/profiles HTTP索引和作品URL；本人素材用my-materials，不用materials代替。
 
-先确定托管网页、外站收录或独立素材，并确认用户授权内容及展示/访问范围。先读取再修改：作品用version，listing和独立素材权限同时用revision，个人资料用profile的revision，伙伴用该伙伴自己的revision。冲突后重新读取再核对，不重复新建。
+先确定托管网页、外站收录或独立素材，并确认用户授权内容及展示范围。先读取再修改：作品用version，网页与独立素材listing同时用revision，个人资料用profile的revision，伙伴用该伙伴自己的revision。冲突后重新读取再核对，不重复新建。
 
 ## 2. 准备完整静态包
 
@@ -96,21 +96,21 @@ model仅在实际可确认时加到该数组元素，未知省略；它与contri
 
 登记伙伴不自动补任何作品署名。旧作只有用户明确确认参与者后才能据此处理，不能因为当前客户端是Codex就推断过去也是。明确的一次历史参与确认不等于其他作品或账号的通用事实。
 
-主页开启后，有profile/public作品署名的伙伴会显示；show_on_profile=true可在没有作品署名时按明确需求独立展示。false只取消独立展示，不能隐藏仍有公开作品署名的伙伴；清空作品参与记录需要更新该作品。没有删除伙伴身份工具，AI不能开启主页。自定义头像需公开HTTPS图片，不用私有鉴权URL；人类或伙伴简介须用户提供或确认。
+主页开启后，有profile/public作品署名的伙伴会显示；show_on_profile=true可在没有作品署名时按明确需求独立展示。false只取消独立展示，不能隐藏仍有公开作品署名的伙伴；清空作品参与记录需要更新该作品。没有删除伙伴身份工具，AI不能开启主页。自定义头像需公开HTTPS图片，使用无需登录的素材URL；人类或伙伴简介须用户提供或确认。
 
-## 7. 独立素材的上传、更新与权限
+## 7. 独立素材的上传、更新与展示
 
 ```sh
-python3 scripts/commonplace.py --credential /private/path/credential.json assets /path/to/photo.jpg --slug photo-one --title '照片说明'
+python3 scripts/commonplace.py --credential /private/path/credential.json assets /path/to/photo.jpg --slug photo-one --title '照片说明' --listing unlisted
 python3 scripts/commonplace.py --credential /private/path/credential.json show WORK_ID
-python3 scripts/commonplace.py --credential /private/path/credential.json asset-visibility WORK_ID --expected-version VERSION --expected-revision 2 --visibility public
+python3 scripts/commonplace.py --credential /private/path/credential.json listing WORK_ID --expected-version VERSION --expected-revision 2 --listing profile
 ```
 
-新上传默认private；示例最后一行仅在用户明确同意公开时执行，版本和revision从最新show读取。MCP对应upload_asset与set_asset_visibility。改权限不上传新文件，不能用于网页依赖；反向改private使用同样的版本保护。修改后核对本人列表和匿名/本人访问结果。
+按用户确认的三档范围传listing。网页与独立素材共用空间默认值；新建省略采用默认值（初始public），更新省略保留原范围。MCP用upload_asset(listing=...)及set_work_listing；版本/revision从最新show或get_work读取。改展示范围不重传原文件，不扩大到网页的某个依赖；依赖随所属网页的listing进入列表。
 
-assets更新可用同一receipt加--update，或指定work_id/expected_version；上传新版时明确传要保留的权限，别假设省略visibility沿用旧值。CLI public用--public，MCP用visibility=public。private URL需要本人会话或密钥，不是匿名引用链接；网页依赖随公开网页可访问。公开素材不等于授予开放许可。
+assets更新用同一receipt加--update，或同时指定work_id/expected_version，保留原slug和稳定URL。三档均可匿名GET/HEAD/Range，原文件字节不变；原文件可被直接引用。public进入发现素材索引和已开启主页，profile只进已开启主页，unlisted不进任何公开列表。可访问不等于授予开放许可。
 
-私有稳定入口 `/api/v1/me/assets/{work_id}`，版本文件 `/api/v1/me/files/{version}/{path}`。如果用户只要修改权限，不应另建素材副本或重传。更换文件内容仍创建新版本。
+旧CLI --public等同--listing public；旧asset-visibility和MCP set_asset_visibility保留兼容，优先使用listing。旧visibility=private仅映射unlisted，无登录保护；visibility=public映射public，同时传冲突参数会拒绝。旧/api/v1/me/assets/{work_id}和/api/v1/me/files/{version}/{path}继续匿名读取已发布文件；草稿、归档或删除仍不可访问。管理列表和修改仍需所属账号授权。
 
 ## 8. 展示、归档和永久删除
 
@@ -134,7 +134,7 @@ assets更新可用同一receipt加--update，或指定work_id/expected_version�
 
 ## 10. 验收与限制
 
-提交成功后回读实际work/版本/范围，核对入口、图标、分类、封面和真实参与信息。按listing检查正确的本人/主页/发现集合；独立素材按权限核对本人库、公开索引及下载原字节。平台栏与作品交互分开验证，有子页则实际打开一页。目录摘要或一次HTTP200不等于验证交互、手机或原件质量。
+提交成功后回读实际work/版本/范围，核对入口、图标、分类、封面和真实参与信息。按listing检查正确的本人/主页/发现集合；独立素材按listing核对本人库、主页、发现索引、匿名下载及原字节。平台栏与作品交互分开验证，有子页则实际打开一页。目录摘要或一次HTTP200不等于验证交互、手机或原件质量。
 
 - REST/CLI/分步上传：单文件25MiB、总100MiB、250文件；HTML正文2MiB、图标1MiB。一键MCP的8文件/32MiB及3MiB JSON限制见第4节。
 - 空间默认512MiB预留额度，含草稿和历史版本；每日默认20次新会话，实际以本人me和服务返回为准。
