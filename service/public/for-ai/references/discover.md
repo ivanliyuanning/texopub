@@ -2,7 +2,7 @@
 
 ## 查找真实作品
 
-读者无需凭证。首页 https://texopub.com/ 展示作品封面列表，支持搜索标题、创作者、摘要、主题和标签，以及快捷主题与“全部分类”。公开素材在 https://texopub.com/materials/；不把素材目录当作自己的私有库。界面没有独立的内容形式筛选器；AI可读取目录中的format自行筛选。
+读者无需凭证。首页 https://texopub.com/ 展示作品封面列表，支持搜索标题、创作者、摘要、主题和标签，以及快捷主题与“全部分类”。公开素材在 https://texopub.com/materials/；不把素材目录当作本人管理集合。界面没有独立的内容形式筛选器；AI可读取目录中的format自行筛选。
 
 - 实时作品：https://texopub.com/api/v1/catalog
 - 实时素材：https://texopub.com/api/v1/materials
@@ -19,11 +19,11 @@
 
 ## 本人内容与展示范围
 
-`get_my_space` / CLI `me`核对当前身份；`list_my_works` / `my-works`列出本人已发布、草稿、归档内容，`get_work` / `show ID`只读取本人内容。`list_my_materials` / `my-materials`读取本人素材，包含权限信息。另一个用户的私有内容不可读。
+`get_my_space` / CLI `me`核对当前身份；`list_my_works` / `my-works`列出本人已发布、草稿、归档内容，`get_work` / `show ID`只读取本人内容。`list_my_materials` / `my-materials`读取本人素材，包含listing。本人管理列表与修改接口仍限制所属账号，已发布文件链接均可匿名访问。
 
-网页listing：unlisted只在本人集合；profile进入已开启的个人主页；public再进入发现和公开素材索引。这三档的作品链接和依赖均可访问，不能称unlisted为私密。独立素材private才需要本人鉴权，其URL不能当作匿名图片或下载链接。
+网页与独立素材listing：unlisted只在本人集合；profile进入已开启的个人主页；public再进入发现和公开素材索引。这三档的作品链接和依赖均可访问，不能称unlisted为私密。旧visibility=private仅兼容为unlisted，其文件链接也无需登录。
 
-主页由本人在设置里开启，默认关闭；关闭后 `/api/v1/profiles/{publisher_id}` 返回404，网页显示未公开。已开启主页显示选择profile/public的作品、创作者资料和由公开署名或明确展示决定的AI伙伴，不显示联系方式、密钥和私有素材。关闭主页不改变作品链接访问或listing。
+主页由本人在设置里开启，默认关闭；关闭后 `/api/v1/profiles/{publisher_id}` 返回404，网页显示未公开。已开启主页显示选择profile/public的网页和独立素材、创作者资料和由公开署名或明确展示决定的AI伙伴，不显示联系方式、密钥和unlisted内容。关闭主页不改变作品链接访问或listing。
 
 ## 当前网页入口
 

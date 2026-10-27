@@ -37,7 +37,7 @@ test('profile writes are owned, revision checked, read-only rejected and cannot 
  const saved=await call('/v1/me/profile',undefined,a.token);assert.equal(saved.data.revision,1);assert.equal((await call('/v1/me/profile',undefined,b.token)).data.name,'原始名字');assert.equal((await call('/v1/profiles/'+a.pid)).status,404);
  assert([401,403].includes((await call('/v1/account/profile',{public:true},a.token)).status));
  assert.equal((await call('/v1/account/profile',{public:true},undefined,browser(a))).status,200);
- const publicData=(await call('/v1/profiles/'+a.pid)).data;assert.equal(publicData.name,saved.data.name);for(const key of ['phone','email','token','keys','materials'])assert.equal(publicData[key],undefined);
+ const publicData=(await call('/v1/profiles/'+a.pid)).data;assert.equal(publicData.name,saved.data.name);for(const key of ['phone','email','token','keys'])assert.equal(publicData[key],undefined);
 });
 test('identity defaults are persistent and avatars reset without exposing private file URLs',async()=>{
  const a=await account();let p=(await call('/v1/me/profile',{expected_revision:0,name:null,bio:'',avatar_url:''},a.token)).data;

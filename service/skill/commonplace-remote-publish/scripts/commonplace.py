@@ -81,7 +81,7 @@ def main(argv=None):
     partner=subs.add_parser('partner');partner.add_argument('--key',required=True);partner.add_argument('--expected-revision',type=int,required=True)
     for field in ['application','name','bio','avatar-url']:partner.add_argument('--'+field)
     partner.add_argument('--show-on-profile',choices=['true','false'])
-    asset_visibility=subs.add_parser('asset-visibility');asset_visibility.add_argument('work_id');asset_visibility.add_argument('--expected-version',required=True);asset_visibility.add_argument('--expected-revision',type=int,required=True);asset_visibility.add_argument('--visibility',choices=['private','public'],required=True)
+    asset_visibility=subs.add_parser('asset-visibility');asset_visibility.add_argument('work_id');asset_visibility.add_argument('--expected-version',required=True);asset_visibility.add_argument('--expected-revision',type=int,required=True);asset_scope=asset_visibility.add_mutually_exclusive_group(required=True);asset_scope.add_argument('--listing',choices=['unlisted','profile','public']);asset_scope.add_argument('--visibility',choices=['private','unlisted','profile','public'],help='兼容旧参数：private等同unlisted；均可匿名访问')
     configure=subs.add_parser('configure');configure.add_argument('file',type=Path)
     show=subs.add_parser('show');show.add_argument('work_id')
     delete=subs.add_parser('delete');delete.add_argument('work_id');delete.add_argument('--expected-version',required=True,help='当前版本；无版本草稿用draft');delete.add_argument('--confirm',action='store_true',required=True)
@@ -94,10 +94,10 @@ def main(argv=None):
     hide=subs.add_parser('hide');hide.add_argument('work_id')
     for command in ['publish','assets','submit']:
         p=subs.add_parser(command);p.add_argument('source',type=str if command=='submit' else Path);p.add_argument('--slug',required=True);p.add_argument('--title',required=True);p.add_argument('--summary',default='');p.add_argument('--tags',default='');p.add_argument('--license',default='未声明开放许可');p.add_argument('--work-id');p.add_argument('--expected-version');p.add_argument('--receipt',type=Path);p.add_argument('--update',action='store_true')
-        if command=='assets':p.add_argument('--public',action='store_true',help='仅在明确授权公开该素材时使用；默认私有')
+        if command=='assets':p.add_argument('--public',action='store_true',help='兼容旧参数，等同--listing public；不传时采用空间默认展示范围')
         if command in {'publish','submit'}:p.add_argument('--category',required=True);p.add_argument('--icon',type=Path,required=True);p.add_argument('--format',default='article')
         if command in {'publish','submit'}:p.add_argument('--ai-partners',type=Path,help='真实AI参与记录JSON文件；省略沿用，空数组清空')
-        if command in {'publish','submit'}:p.add_argument('--listing',choices=['unlisted','profile','public'],help='不展示 / 仅个人主页 / 公开展示；三档均可通过链接访问')
+        p.add_argument('--listing',choices=['unlisted','profile','public'],help='不展示 / 仅个人主页 / 公开展示；三档均可通过链接访问')
         if command=='publish':p.add_argument('--cover')
         if command=='submit':p.add_argument('--link-status',choices=['unchecked','unavailable'],default='unchecked')
     args=ap.parse_args(argv)
@@ -137,7 +137,7 @@ def main(argv=None):
         if args.show_on_profile is not None:body['show_on_profile']=args.show_on_profile=='true'
         print(json.dumps(request(api,'/v1/me/ai-partners',token,body,'POST'),ensure_ascii=False,indent=2));return
     if args.command=='asset-visibility':
-        print(json.dumps(request(api,'/v1/me/works/'+args.work_id+'/visibility',token,{'expected_version':args.expected_version,'expected_revision':args.expected_revision,'visibility':args.visibility},'POST'),ensure_ascii=False,indent=2));return
+        print(json.dumps(request(api,'/v1/me/works/'+args.work_id+'/visibility',token,{'expected_version':args.expected_version,'expected_revision':args.expected_revision,'listing':args.listing or ('unlisted' if args.visibility=='private' else args.visibility)},'POST'),ensure_ascii=False,indent=2));return
     if args.command=='show':
         print(json.dumps(request(api,'/v1/me/works/'+args.work_id,token),ensure_ascii=False,indent=2));return
     if args.command=='preferences':
@@ -181,12 +181,14 @@ def main(argv=None):
                 z.extractall(folder)
             children=list(folder.iterdir());source=children[0] if len(children)==1 and children[0].is_dir() else folder
         body={'slug':args.slug,'title':args.title,'summary':args.summary,'tags':[x.strip() for x in args.tags.split(',') if x.strip()],'license':args.license,'kind':'asset' if args.command=='assets' else 'work'}
-        if args.command in {'publish','submit'} and args.listing is not None:body['listing']=args.listing
+        if args.listing is not None:body['listing']=args.listing
         if args.command in {'publish','submit'} and args.ai_partners is not None:
             contributors=json.loads(args.ai_partners.expanduser().read_text())
             if not isinstance(contributors,list):raise Error('AI参与记录需要JSON数组')
             body['ai_partners']=contributors
-        if args.command=='assets':body['visibility']='public' if args.public else 'private'
+        if args.command=='assets' and args.public:
+            if args.listing not in {None,'public'}:raise Error('--public与--listing冲突')
+            body['listing']='public'
         if args.command=='submit':
             parsed=urllib.parse.urlsplit(source)
             if parsed.scheme!='https' or not parsed.hostname or parsed.username or parsed.password:raise Error('收录需要公开HTTPS网址，不接受登录凭证或本机链接')

@@ -35,7 +35,7 @@ function avatarUrl(value) {
   if (!raw) return '';
   let u;
   try { u = new URL(raw); } catch { fail(400, '头像需要公开的 HTTPS 图片网址'); }
-  if (u.protocol !== 'https:' || u.username || u.password || u.port || !u.hostname.includes('.') || /(?:^|\.)(localhost|local|internal|test|invalid)$/.test(u.hostname) || /^[\d.]+$/.test(u.hostname) || /\/(?:api\/)?v1\/me\//.test(u.pathname)) fail(400, '头像需要公开的 HTTPS 图片网址，不能使用私有文件链接');
+  if (u.protocol !== 'https:' || u.username || u.password || u.port || !u.hostname.includes('.') || /(?:^|\.)(localhost|local|internal|test|invalid)$/.test(u.hostname) || /^[\d.]+$/.test(u.hostname) || (/\/(?:api\/)?v1\/me\//.test(u.pathname)&&!/^\/(?:api\/)?v1\/me\/(?:files\/[a-f0-9]{32}\/.+|assets\/[a-f0-9]{32})$/.test(u.pathname))) fail(400, '头像需要可匿名访问的 HTTPS 图片网址');
   return u.href;
 }
 const avatar = (env, id, kind) => (env.APP_ORIGIN || 'https://texopub.com') + '/api/v1/avatars/' + kind + '/' + id + '.svg';

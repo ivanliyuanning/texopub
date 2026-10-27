@@ -267,3 +267,69 @@ test('large deletion finishes across bounded batches and an active upload lock b
  await db.prepare('INSERT INTO work_operations(work_id,token,expires) VALUES(?,?,?)').bind(w.id,'active',Math.floor(Date.now()/1000)+60).run();assert.equal((await call('POST',ep,args,p.token)).status,409);assert.equal((await call('GET',w.url)).status,200);await db.prepare('DELETE FROM work_operations WHERE work_id=?').bind(w.id).run();
  let r=await call('POST',ep,args,p.token);assert.equal(r.data.deleted,false);assert(r.data.remaining_files>0);r=await call('POST',ep,args,p.token);assert.equal(r.data.deleted,true);assert.equal((await call('GET','/v1/me',undefined,p.token)).data.reserved_bytes,0);
 });
+
+test('webpages and assets share all three listings, anonymous GET/HEAD/Range, profiles and owner-only writes',async()=>{
+ const p=await publisher('Unified listing'),other=await publisher('Unrelated reader'),db=await mf.getD1Database('DB','api');
+ await db.prepare('INSERT INTO accounts(id,publisher_id,phone,created,profile_public) VALUES(?,?,?,?,1)').bind(p.publisher_id,p.publisher_id,'test-unified-'+p.publisher_id,Math.floor(Date.now()/1000)).run();
+ for(const kind of ['work','asset'])for(const listing of ['unlisted','profile','public']){
+  const slug='unified-'+kind+'-'+listing,data=Buffer.from('original-file-'+slug),pack=kind==='work'?pkg(slug):{files:{'file.txt':data},body:{kind,slug,title:slug,files:[{path:'file.txt',bytes:data.length,sha256:digest(data)}]}};
+  const upload=await start(p,pack,{listing});assert.equal(upload.status,201,JSON.stringify(upload.data));await send(p,upload.data,pack);const result=await commit(p,upload.data);assert.equal(result.status,201,JSON.stringify(result.data));const w=result.data.work;assert.equal(w.listing,listing);
+  const fileUrl=upload.data.content_base+(kind==='work'?'image.png':'file.txt'),expected=kind==='work'?'original-image-bytes':data.toString();
+  for(const token of [undefined,other.token]){const read=await call('GET',w.url,undefined,token);assert.equal(read.status,200);assert.equal((await call('HEAD',w.url,undefined,token)).status,200);}
+  assert.equal((await call('GET',fileUrl)).data,expected);const range=await call('GET',fileUrl,undefined,undefined,{Range:'bytes=0-7'});assert.equal(range.status,206);assert.equal(range.data,expected.slice(0,8));
+  for(const old of ['/v1/me/files/'+w.version+'/'+(kind==='work'?'image.png':'file.txt'),...(kind==='asset'?['/v1/me/assets/'+w.id]:[])]){assert.equal((await call('GET',old)).data,expected);assert.equal((await call('HEAD',old)).status,200);assert.equal((await call('GET',old,undefined,undefined,{Range:'bytes=0-7'})).status,206);}
+  const materials=(await call('GET','/v1/materials')).data.items;assert.equal(materials.some(f=>f.id.startsWith(w.version+'/')),listing==='public');
+  const profile=(await call('GET','/v1/profiles/'+p.publisher_id)).data;assert.equal((kind==='work'?profile.items:profile.materials).some(x=>(x.work_id||x.id)===w.id),listing!=='unlisted');
+  const change={expected_version:w.version,expected_revision:w.revision,listing:'profile'};
+  assert.equal((await call('POST','/v1/me/works/'+w.id+'/listing',change)).status,401);assert.equal((await call('POST','/v1/me/works/'+w.id+'/listing',change,other.token)).status,404);
+  const updated=await call('POST','/v1/me/works/'+w.id+'/listing',change,p.token);assert.equal(updated.status,200);assert.equal(updated.data.version,w.version);assert.equal(updated.data.url,w.url);assert.equal((await call('POST','/v1/me/works/'+w.id+'/listing',change,p.token)).status,409);
+  // A draft prepared before a listing change cannot undo that change.
+  const draft=await start(p,pack,{work_id:w.id,expected_version:w.version});assert.equal(draft.status,201);await send(p,draft.data,pack);
+  const fresh=updated.data;const hidden=await call('POST','/v1/me/works/'+w.id+'/listing',{expected_version:w.version,expected_revision:fresh.revision,listing:'unlisted'},p.token);assert.equal(hidden.status,200);assert.equal((await commit(p,draft.data)).status,409);
+  assert.equal((await call('POST','/v1/me/works/'+w.id+'/delete',{expected_version:w.version,confirm:true},p.token)).data.deleted,true);
+  assert.equal((await call('GET',w.url)).status,404);assert.equal((await call('GET',fileUrl)).status,404);assert.equal((await call('GET','/v1/me/files/'+w.version+'/'+(kind==='work'?'image.png':'file.txt'))).status,404);
+ }
+ assert.equal((await call('GET','/v1/me',undefined,p.token)).data.reserved_bytes,0);
+ // Disabling the homepage hides lists but leaves content links independent.
+ await db.prepare('UPDATE accounts SET profile_public=0 WHERE publisher_id=?').bind(p.publisher_id).run();assert.equal((await call('GET','/v1/profiles/'+p.publisher_id)).status,404);
+});
+
+test('asset updates inherit listing, legacy parameters map to listing and conflicting choices are rejected',async()=>{
+ const p=await publisher('Asset compatibility'),bytes=Buffer.from('unchanged bytes');
+ const make=slug=>({files:{'file.txt':bytes},body:{kind:'asset',slug,title:slug,files:[{path:'file.txt',bytes:bytes.length,sha256:digest(bytes)}]}});
+ await call('POST','/v1/me/preferences',{default_listing:'profile'},p.token);
+ const pack=make('asset-compatibility'),up=await start(p,pack);await send(p,up.data,pack);let w=(await commit(p,up.data)).data.work;assert.equal(w.listing,'profile');
+ await call('POST','/v1/me/preferences',{default_listing:'public'},p.token);const next=await start(p,pack,{work_id:w.id,expected_version:w.version});await send(p,next.data,pack);const changed=(await commit(p,next.data)).data.work;assert.equal(changed.listing,'profile');assert.equal(changed.url,w.url);w=changed;
+ const alias=await call('POST','/v1/me/works/'+w.id+'/visibility',{expected_version:w.version,expected_revision:w.revision,visibility:'private'},p.token);assert.equal(alias.status,200,JSON.stringify(alias.data));assert.equal(alias.data.listing,'unlisted');assert.equal((await call('GET',w.url)).status,200);
+ assert.equal((await start(p,make('conflict'),{visibility:'private',listing:'public'})).status,400);
+ assert.equal((await start(p,make('invalid-mode'),{listing:'private'})).status,400);
+ const legacy=await start(p,make('legacy-asset'),{visibility:'private'});assert.equal(legacy.status,201);await send(p,legacy.data,make('legacy-asset'));const done=await commit(p,legacy.data);assert.equal(done.data.work.listing,'unlisted');assert.equal((await call('GET',done.data.work.url)).status,200);
+});
+
+test('legacy asset migration is idempotent and preserves history, URLs and original bytes',async()=>{
+ const p=await publisher('Migration'),data=Buffer.from('migration-original'),pack={files:{'old.txt':data},body:{kind:'asset',slug:'migration-asset',title:'Migration',listing:'unlisted',files:[{path:'old.txt',bytes:data.length,sha256:digest(data)}]}};
+ const first=await start(p,pack);await send(p,first.data,pack);let w=(await commit(p,first.data)).data.work;
+ const second=await start(p,pack,{work_id:w.id,expected_version:w.version});await send(p,second.data,pack);w=(await commit(p,second.data)).data.work;
+ const db=await mf.getD1Database('DB','api');
+ await db.batch([db.prepare("UPDATE works SET listing='public',metadata=json_set(metadata,'$.visibility','private') WHERE id=?").bind(w.id),db.prepare("UPDATE versions SET metadata=json_set(json_remove(metadata,'$.listing'),'$.visibility','private') WHERE work_id=?").bind(w.id)]);
+ const migration=readFileSync(path.join(ROOT,'migrations/0008_unified_listing.sql'),'utf8').split(';').map(x=>x.trim()).filter(Boolean);await db.batch(migration.map(q=>db.prepare(q)));
+ const migrated=await db.prepare('SELECT * FROM works WHERE id=?').bind(w.id).first();assert.equal(migrated.listing,'unlisted');assert.equal(migrated.revision,w.revision+1);assert.equal(migrated.current_version,w.version);assert.equal(JSON.parse(migrated.metadata).visibility,undefined);
+ for(const v of [first.data.upload_id,second.data.upload_id]){const row=await db.prepare('SELECT metadata FROM versions WHERE id=?').bind(v).first();assert.equal(JSON.parse(row.metadata).listing,'unlisted');assert.equal(JSON.parse(row.metadata).visibility,undefined);assert.equal((await call('GET','/v1/me/files/'+v+'/old.txt')).data,data.toString());}
+ assert.equal((await call('GET','/v1/me/assets/'+w.id)).data,data.toString());assert.equal((await call('GET',w.url)).data,data.toString());assert(!(await call('GET','/v1/materials')).data.items.some(x=>x.id.startsWith(w.version+'/')));
+ await db.batch(migration.map(q=>db.prepare(q)));assert.equal((await db.prepare('SELECT revision FROM works WHERE id=?').bind(w.id).first()).revision,migrated.revision);
+});
+
+test('portable CLI uploads three asset listings, preserves update range and supports legacy listing alias',async()=>{
+ const fs=require('node:fs'),os=require('node:os'),{promisify}=require('node:util'),execFile=promisify(require('node:child_process').execFile),tmp=fs.mkdtempSync(path.join(os.tmpdir(),'texopub-listing-cli-')),p=await publisher('Unified CLI');
+ try{
+  const api=(await mf.ready).origin,creds=path.join(tmp,'credential.json'),file=path.join(tmp,'sample.txt'),client=path.join(ROOT,'../scripts/remote_publish.py');fs.writeFileSync(creds,JSON.stringify({api,token:p.token}),{mode:0o600});fs.writeFileSync(file,'cli-original-bytes');
+  const run=async(...args)=>JSON.parse((await execFile('python3',[client,'--credential',creds,...args],{cwd:tmp})).stdout);
+  for(const listing of ['unlisted','profile','public']){
+   const args=['assets',file,'--slug','cli-'+listing,'--title','CLI '+listing,'--listing',listing],pub=await run(...args);assert.equal(pub.listing,listing);assert.equal((await call('GET',pub.url)).data,'cli-original-bytes');
+   const fresh=await run('show',pub.work_id),changed=await run('listing',pub.work_id,'--expected-version',pub.version,'--expected-revision',String(fresh.revision),'--listing','profile');assert.equal(changed.version,pub.version);
+   const updated=await run('assets',file,'--slug','cli-'+listing,'--title','CLI update','--update');assert.equal(updated.listing,'profile');assert.equal(updated.url,pub.url);
+   const current=await run('show',pub.work_id),legacy=await run('asset-visibility',pub.work_id,'--expected-version',current.version,'--expected-revision',String(current.revision),'--visibility','private');assert.equal(legacy.listing,'unlisted');assert.equal((await call('GET',legacy.url)).status,200);
+  }
+  await assert.rejects(()=>run('assets',file,'--slug','cli-conflict','--title','Conflict','--public','--listing','profile'));
+ }finally{fs.rmSync(tmp,{recursive:true,force:true});}
+});

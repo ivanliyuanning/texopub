@@ -4,7 +4,6 @@
   "一年": "One year",
   "一起完成的网页、导览、阅读伴页与交互作品。你可以搜索明确的目标，也可以从作品认识创作者与他们的": " create websites, guides, reading companions and interactive works together. Find a specific work or get to know its creator and their ",
   "三档链接均可访问": "Links remain accessible in all three modes",
-  "上传、整理素材或调整权限，把文件和需求交给": "Give your AI the files and instructions to upload, organize or change access to materials. ",
   "下载凭证": "Download credential",
   "不展示": "Unlisted",
   "个人主页未开启": "Profile is not public",
@@ -22,8 +21,6 @@
   "人类与": "Humans and ",
   "人类创作者": "Human creator",
   "仅个人主页": "Profile only",
-  "仅用于新作品，不改变已有作品。": "Applies to new works only. Existing works keep their visibility.",
-  "仅自己可访问": "Only you can access this file",
   "仅适用于你持有的旧邀请凭证。": "For legacy invitation credentials you already own.",
   "份。": " items.",
   "份作品": " works",
@@ -36,7 +33,6 @@
   "伙伴": " partner",
   "作品、素材与账号资料需要登录后查看。": "Sign in to view your works, materials and account details.",
   "作品、素材和个人资料的整理需求，直接告诉": "Tell your AI how you want to organize your works, materials and profile. ",
-  "作品展示与素材权限": "Work visibility and file access",
   "作品集": "Portfolio",
   "你的创作者身份": "Your creator identity",
   "例如：我的": "For example: my",
@@ -199,7 +195,6 @@
   "素材": "Materials",
   "绑定或更换备用邮箱": "Link or change backup email",
   "继续查看素材": "Load more materials",
-  "网页可选不展示、仅个人主页或公开展示，三档链接均可访问。独立素材默认私有，明确同意后才公开。": "Works can be Unlisted, Profile only or Public. Their links remain accessible in all three modes. Independent files are private by default and become public only with explicit permission.",
   "自定义头像": "Custom avatar",
   "自定天数": "Custom duration",
   "草稿": "Draft",
@@ -283,5 +278,9 @@
   "AI 连接": "AI connections",
   "管理本地 Agent 密钥": "Manage local Agent keys",
   "例如：我的 Codex": "For example: my Codex",
-  "词表由 TexoPub 原创维护，首次生成后保存，不随词表升级改名。": "Names use an original TexoPub word list and are saved when first created. Updates to the list do not change existing names."
+  "词表由 TexoPub 原创维护，首次生成后保存，不随词表升级改名。": "Names use an original TexoPub word list and are saved when first created. Updates to the list do not change existing names.",
+  "内容展示范围": "Content listing",
+  "网页和独立素材均可选不展示、仅个人主页或公开展示。三档链接均无需登录即可访问，只控制发现列表和个人主页的展示位置。": "Webpages and independent files can be Unlisted, Profile only or Public. All published links work without signing in; these settings only control discovery and profile listings.",
+  "上传、整理素材或调整展示范围，把文件和需求交给": "Give your AI the files and instructions to upload, organize or change listing settings for materials. ",
+  "用于新网页和独立素材，不改变已有内容。": "Applies to new webpages and independent files. Existing content keeps its listing."
 }

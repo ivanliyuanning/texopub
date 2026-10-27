@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "TexoPub.ai 个人空间与发布 API",
-    "version": "2.1.1",
-    "description": "TexoPub发布与本人空间API。网页内容更新提交完整新版包；本人资料、伙伴名片、作品listing与独立素材权限有直接修改接口。三档listing只控制列表，独立素材private/public控制实际访问。详情见/for-ai/SKILL.md及references/publish.md。"
+    "version": "2.3.0",
+    "description": "网页和独立素材统一listing三档展示；所有已发布链接无需登录。管理、上传、修改和删除需要所属账号授权。新建采用空间默认，更新省略listing保留原值。旧visibility=private仅兼容为unlisted。"
   },
   "servers": [
     {
@@ -241,10 +241,12 @@
                     "type": "string",
                     "enum": [
                       "private",
+                      "unlisted",
+                      "profile",
                       "public"
                     ],
-                    "default": "private",
-                    "description": "仅独立素材使用；默认私有，公开必须获用户明确授权。网页依赖随网页公开。"
+                    "description": "旧兼容参数；private等同unlisted，不限制访问。与listing冲突时拒绝。",
+                    "deprecated": true
                   },
                   "listing": {
                     "type": "string",
@@ -253,7 +255,7 @@
                       "profile",
                       "public"
                     ],
-                    "description": "不展示 / 仅个人主页 / 公开展示。仅控制公开列表收录，链接均可访问。新作品使用空间默认值，更新省略保持原值。"
+                    "description": "网页和独立素材统一的展示范围；三档链接无需登录。新建采用空间default_listing，更新省略沿用原值。"
                   },
                   "ai_partners": {
                     "type": "array",
@@ -519,7 +521,7 @@
     },
     "/v1/me/assets/{work_id}": {
       "get": {
-        "summary": "读取所属身份的独立素材（稳定地址）",
+        "summary": "旧文件链接兼容入口（无需登录）",
         "responses": {
           "200": {
             "description": "所属身份的资源，私有文件不缓存"
@@ -530,12 +532,14 @@
           "404": {
             "description": "不存在或不属于当前身份"
           }
-        }
+        },
+        "security": [],
+        "description": "匿名读取已发布原文件；GET/HEAD/Range支持；草稿、归档和永久删除继续不可访问。"
       }
     },
     "/v1/me/files/{version_id}/{path}": {
       "get": {
-        "summary": "下载所属身份的版本文件",
+        "summary": "旧文件链接兼容入口（无需登录）",
         "responses": {
           "200": {
             "description": "所属身份的资源，私有文件不缓存"
@@ -546,7 +550,9 @@
           "404": {
             "description": "不存在或不属于当前身份"
           }
-        }
+        },
+        "security": [],
+        "description": "匿名读取已发布原文件；GET/HEAD/Range支持；草稿、归档和永久删除继续不可访问。"
       }
     },
     "/v1/profiles/{publisher_id}": {
@@ -711,7 +717,8 @@
           "409": {
             "description": "版本/修订冲突或正在处理，请刷新或重试"
           }
-        }
+        },
+        "description": "统一调整本人网页或独立素材的列表收录位置；链接始终无需登录。核对version/revision，不改内容版本与主页开关。"
       }
     },
     "/v1/me/preferences": {
@@ -918,7 +925,7 @@
     },
     "/v1/me/works/{work_id}/visibility": {
       "post": {
-        "summary": "Change own standalone asset access without reuploading bytes",
+        "summary": "旧素材展示兼容接口",
         "security": [
           {
             "publisherToken": []
@@ -943,14 +950,36 @@
                     "type": "string",
                     "enum": [
                       "private",
+                      "unlisted",
+                      "profile",
+                      "public"
+                    ],
+                    "deprecated": true
+                  },
+                  "listing": {
+                    "type": "string",
+                    "enum": [
+                      "unlisted",
+                      "profile",
                       "public"
                     ]
                   }
                 },
                 "required": [
                   "expected_version",
-                  "expected_revision",
-                  "visibility"
+                  "expected_revision"
+                ],
+                "anyOf": [
+                  {
+                    "required": [
+                      "listing"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "visibility"
+                    ]
+                  }
                 ]
               }
             }
@@ -974,7 +1003,8 @@
             }
           }
         ],
-        "description": "仅本人独立素材，核对expected_version和expected_revision。不重传文件；公开需用户明确授权。网页依赖不适用。"
+        "description": "优先使用统一listing接口；旧private只映射unlisted，所有已发布文件均无需登录。",
+        "deprecated": true
       }
     }
   },

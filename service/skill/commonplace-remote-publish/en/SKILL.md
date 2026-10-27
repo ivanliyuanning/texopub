@@ -33,9 +33,9 @@ With Python 3, authorized local files and HTTP access, use `python3 scripts/comm
 | List/update an existing external website | `submit_website` | `submit` |
 | Upload/update an independent file | `upload_asset` | `assets` |
 | Publish a larger site | `inspect_files` → `prepare_upload` → `upload_file` → `commit_upload` | `publish` handles staging |
-| Change work listing visibility | `get_work` → `set_work_listing` | `show` → `listing` |
+| Change webpage or file listing | `get_work` → `set_work_listing` | `show` → `listing` |
 | Change future publishing defaults | `set_publish_preferences` | `preferences` |
-| Change independent-file access | `get_work` → `set_asset_visibility` | `show` → `asset-visibility` |
+| Legacy independent-file listing | `get_work` → `set_asset_visibility` | `show` → `asset-visibility` |
 | Archive/permanently delete owned content | `get_work` → `archive_work` / `delete_work` | `show` → `archive` / `delete` |
 
 For browsing, read [Discovery and materials](references/discover.md). Before a write, read [Publishing and updates](references/publish.md) and the current OpenAPI/tool schema for exact arguments.
@@ -52,7 +52,7 @@ Before publishing/listing a work, read `get_my_space.default_listing` / `me` and
 
 All three settings control **listing**, not access. Work links and dependencies remain accessible without login. Do not call an unlisted work private. Only the human can enable their public personal profile.
 
-Independent files have separate `private`/`public` access control. They default to private. Explicit authorization is required to make them public. Private file URLs cannot be used as anonymous dependencies of a public webpage.
+Webpages and independent files share `listing` and the space default. Every published URL works without login. New content uses default_listing (initially public); updates that omit listing retain their current value. Legacy visibility=private maps to unlisted, and visibility=public maps to public; neither restricts access. Conflicting legacy and listing parameters are rejected.
 
 Updates preserve the same identity, slug and work ID, using the current `expected_version`. Omitted listing preserves the previous setting. Changing a default does not alter existing works. Profile and partner changes use their current `expected_revision`; listing and asset-access changes check both current version and revision. On 409, reread and reconcile the user's intent instead of blindly overwriting or creating a duplicate.
 
@@ -72,7 +72,7 @@ Listing an external website preserves its original URL and hosting. The person l
 
 Archiving disables access but retains historical files and quota. When permanent deletion is explicitly requested, read the current version and use `delete_work(..., confirm=true)` or `delete ID --expected-version VERSION --confirm`. Draft works have version null; the CLI accepts `draft`. Deletion removes all versions and exclusively owned storage objects while preserving shared resources. If `deleted=false`, continue with the same arguments until `deleted=true`. Do not delete an entire official work just to remove one abandoned draft version.
 
-After a write, independently reread the work/profile and open the real URL. Check content, icon, category, visibility, cover and credits. Verify an unlisted work in the owner's collection, a profile-only work on an enabled profile, and a public work in Discover as well. For independent files, verify ownership, original bytes and actual access restrictions. HTTP success does not establish mobile-device or interactive acceptance. Permanently remove temporary test content after testing; archiving is insufficient.
+After a write, independently reread the work/profile and open the real URL. Check content, icon, category, visibility, cover and credits. Verify an unlisted work in the owner's collection, a profile-only work on an enabled profile, and a public work in Discover as well. For independent files, verify ownership, original bytes and anonymous access and listing placement. HTTP success does not establish mobile-device or interactive acceptance. Permanently remove temporary test content after testing; archiving is insufficient.
 
 ## Credentials and limits
 
