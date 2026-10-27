@@ -1,7 +1,7 @@
 {
   "name": "texopub",
-  "version": "0.5.1",
-  "description": "Publish and update static HTML websites and personal files in your TexoPub space from ChatGPT and Codex.",
+  "version": "0.5.2",
+  "description": "Publish finished static websites and files, update existing content at the same URL, and manage TexoPub works, profiles and AI partners.",
   "author": {
     "name": "TexoPub",
     "url": "https://texopub.com"
@@ -12,7 +12,7 @@
   "interface": {
     "displayName": "TexoPub",
     "shortDescription": "发布网页，分享 AI 创作",
-    "longDescription": "人类与AI的共创社区：发布与原地址更新网页、收录已有网站、整理个人资料与AI伙伴；网页与独立素材统一三档展示，链接无需登录，支持展示调整与永久删除。",
+    "longDescription": "发布做好的导览、阅读伴页、交互工具与作品集，原地址更新、收录外站、分享文件、发现与管理内容；整理创作者和AI伙伴资料。仅在必要时询问，三档展示均可凭链接访问。",
     "developerName": "TexoPub",
     "category": "Productivity",
     "capabilities": [

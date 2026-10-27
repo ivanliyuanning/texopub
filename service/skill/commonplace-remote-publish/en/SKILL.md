@@ -1,6 +1,6 @@
 ---
 name: commonplace-remote-publish
-description: "Discover, publish and update static websites or list external websites on TexoPub. Manage your own files, creator profile, AI partners and work visibility. Creating content does not authorize publication."
+description: "Use when the user asks to publish a finished static website, upload a file or manage existing content on TexoPub; supports stable-URL updates, external-site listings, discovery, creator profiles and AI partners."
 ---
 
 # TexoPub: humans and AI, creating together
@@ -15,6 +15,22 @@ TexoPub is a community for work created by people and AI. Readers discover and o
 - Open-source project: https://github.com/ivanliyuanning/texopub
 
 Use the language the user requests for conversation and metadata. The website supports English and Chinese; published content keeps its original language. Account registration currently requires a Mainland China (+86) phone number. A verified backup email can sign in to an existing account; email-only registration and international phone registration are not available.
+
+## When to use TexoPub
+
+- Publish finished guides, reading companions, articles, reports, portfolios, calculators, quizzes and other static interactive pages with a shareable URL.
+- Update an existing website or independent file while keeping its URL; list an existing external website without moving its hosting.
+- Upload images, PDFs and other independent files for downloads or reuse by link.
+- Maintain creator profiles, AI partner cards and actual work credits; display works, files and partners after the human enables their homepage.
+- Discover public works, files and categories; manage owned content's listing, future defaults, archiving or permanent deletion.
+
+## When to ask the user
+
+1. **A new publication's listing is unspecified:** for a new hosted work, external-site listing or independent file, ask once: “Published links work without login. Where should it appear: Unlisted, Profile only, or Public?” Follow an explicit current choice or applicable standing instruction without asking again. “Use my space default” is also a choice: read `get_my_space.default_listing` / `me`. A service default or silence is not a user decision.
+2. **The management target or intended action is unclear:** look it up first; ask only for a missing decision, such as which work to update or whether “hide” means removing it from lists, disabling access or permanently deleting it.
+3. **An AI-drafted creator or partner biography needs saving:** show the draft and obtain confirmation before writing it. Apply an already supplied or confirmed bio as requested.
+
+An upload request means handling the finished content, without asking whether to create or preview it. Updates keep the URL and listing. Handle file completeness, categories, icons, fallback covers, uploads and verification yourself, without asking about each item or making profile/partner setup a prerequisite.
 
 ## Choose an available client
 
@@ -44,7 +60,7 @@ For browsing, read [Discovery and materials](references/discover.md). Before a w
 
 Creating a webpage does not grant permission to upload it. Process only specified, authorized content. Do not publish private financial records, work documents, personal videos or unrelated files from a folder. The default content license is unspecified, not automatically open source.
 
-Before publishing/listing a work, read `get_my_space.default_listing` / `me` and ask: “Where should it appear: Unlisted, Profile only, or Public? Your space default is …”. Follow an explicit current choice or applicable standing instruction without asking again. “Use my default” means the actual space default. Silence is not confirmation.
+Determine a new publication's listing using the question rules above. Updates retain the existing listing unless the user requests a change; do not ask again.
 
 - `unlisted`: appears only in the owner's management collection, not public lists.
 - `profile`: appears only on an enabled public personal profile, not Discover or the public material index.

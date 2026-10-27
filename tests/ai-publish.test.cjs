@@ -11,5 +11,5 @@ test('guide explains unified listing and anonymous asset links',async()=>{
  const c=await open('/publish/');const text=c.d.querySelector('.help-details').textContent;assert.match(text,/三档链接均无需登录即可访问/);assert.match(text,/网页和独立素材/);c.close();
 });
 test('packaged clients expose the same new identity, partner and asset permission capabilities',()=>{
- const client=fs.readFileSync(SITE+'/downloads/commonplace.py','utf8');for(const marker of ['profile-update','--ai-partners','asset-visibility','--expected-revision'])assert(client.includes(marker));const manifest=JSON.parse(fs.readFileSync(SITE+'/for-ai/manifest.json'));assert.equal(manifest.version,'2.3.0');assert.equal(manifest.contains_credentials,false);
+ const client=fs.readFileSync(SITE+'/downloads/commonplace.py','utf8');for(const marker of ['profile-update','--ai-partners','asset-visibility','--expected-revision'])assert(client.includes(marker));const manifest=JSON.parse(fs.readFileSync(SITE+'/for-ai/manifest.json'));assert.equal(manifest.version,'2.3.1');assert.equal(manifest.contains_credentials,false);
 });

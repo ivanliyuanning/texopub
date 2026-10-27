@@ -1,11 +1,11 @@
 {
   "name": "commonplace-remote-publish",
   "display_name": "TexoPub.ai",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "skill_url": "https://texopub.com/for-ai/SKILL.md",
-  "archive_url": "https://texopub.com/downloads/commonplace-skill-v2.3.0.zip",
-  "sha256": "237d9a3f2d8eaaa02ec30650244e5e17c7520e4a1f6ee5de4b31cd8634c56f09",
-  "bytes": 30971,
+  "archive_url": "https://texopub.com/downloads/commonplace-skill-v2.3.1.zip",
+  "sha256": "d3105b46771dc78bea1752c694f31384a457db33db151c6e4f577d3997cc2f11",
+  "bytes": 32259,
   "files": [
     "SKILL.md",
     "references/publish.md",
