@@ -14,7 +14,7 @@ python3 scripts/commonplace.py --credential /private/path/credential.json show W
 
 `show` / `get_work`只读本人作品，包括草稿和归档，不是任意公开作品读取工具。公开内容用catalog/profiles HTTP索引和作品URL；本人素材用my-materials，不用materials代替。
 
-先确定托管网页、外站收录或独立素材，并确认用户授权内容及展示范围。先读取再修改：作品用version，网页与独立素材listing同时用revision，个人资料用profile的revision，伙伴用该伙伴自己的revision。冲突后重新读取再核对，不重复新建。
+根据请求选择托管网页、外站收录或独立素材；仅按主文的三种情况主动询问，明确的上传或管理指令直接执行，更新沿用原网址和展示范围。先读取再修改：作品用version，网页与独立素材listing同时用revision，个人资料用profile的revision，伙伴用该伙伴自己的revision。冲突后重新读取再核对，不重复新建。
 
 ## 2. 准备完整静态包
 

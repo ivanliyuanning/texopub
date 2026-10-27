@@ -13,7 +13,7 @@ python3 scripts/commonplace.py --credential /private/path/credential.json show W
 python3 scripts/commonplace.py --credential /private/path/credential.json categories
 ```
 
-Distinguish a hosted static website, an external-site listing and an independent file. Confirm the exact authorized content, owner, current version and visibility. `show` only reads owned works. Public discovery uses HTTP indexes.
+Choose hosted publishing, external-site listing or an independent file from the request. Ask only in the three situations described in the Skill; execute explicit upload/management requests directly and keep the URL and listing on updates. Read the owner and current version yourself. `show` only reads owned works. Public discovery uses HTTP indexes.
 
 Export framework projects first. The CLI accepts one HTML file, a dedicated static folder with index.html, or a ZIP. MCP accepts expanded static files, HTML/text and authorized conversation attachments; it cannot compile a project, unzip local archives or read a local path. Check relative references, root paths and dynamically constructed dependencies. Include every file needed by every page.
 

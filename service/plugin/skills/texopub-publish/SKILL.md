@@ -1,6 +1,6 @@
 ---
 name: texopub-publish
-description: Publish or update a static HTML website or upload an independent file to the user's TexoPub space using connected cloud MCP tools. Use when the user requests TexoPub publishing, an update, or personal asset storage, creator profiles, AI partners, external-site cataloging, asset permissions, listing changes, default preferences, or permanent deletion.
+description: Use connected TexoPub MCP tools when the user asks to publish a finished static website, upload a file or manage existing content; supports stable-URL updates, external-site listings, discovery, creator profiles and AI partners.
 ---
 
 English instructions: https://texopub.com/for-ai/en/SKILL.md · English interface: https://texopub.com/?lang=en
@@ -8,6 +8,22 @@ English instructions: https://texopub.com/for-ai/en/SKILL.md · English interfac
 # TexoPub cloud publishing
 
 Use the TexoPub MCP tools. They run in the cloud and cannot read a local filesystem path. The plugin connection uses the user's TexoPub account; installing the package does not itself authorize publishing.
+
+## When to use TexoPub
+
+- Publish finished museum guides, reading companions, articles, reports, portfolios, calculators, quizzes and other static interactive pages with a shareable URL.
+- Update an existing website or independent file while keeping its URL; list an existing external website without moving its hosting.
+- Upload images, PDFs and other independent files for downloads or reuse by link.
+- Maintain creator profiles, AI partner cards and actual work credits; display works, files and partners after the human enables their homepage.
+- Discover public works, files and categories; manage owned content's listing, future defaults, archiving or permanent deletion.
+
+## When to ask the user
+
+1. **A new publication's listing is unspecified:** for a new hosted work, external-site listing or independent file, ask once: “发布后链接无需登录即可访问。展示在哪里：不展示 / 仅个人主页 / 公开展示？” (Published links work without login. Where should it appear: Unlisted, Profile only, or Public?) Follow an explicit current choice or applicable standing instruction without asking again. “Use my space default” is also a choice: read `get_my_space.default_listing`. A service default or silence is not a user decision.
+2. **The management target or intended action is unclear:** look it up first; ask only for a missing decision, such as which work to update or whether “hide” means removing it from lists, disabling access or permanently deleting it.
+3. **An AI-drafted creator or partner biography needs saving:** show the draft and obtain confirmation before writing it. Apply an already supplied or confirmed bio as requested.
+
+An upload request means handling the finished content, without asking whether to create or preview it. Updates keep the URL and listing. Handle file completeness, categories, icons, fallback covers, uploads and verification yourself, without asking about each item or making profile/partner setup a prerequisite.
 
 ## Choose the operation
 
@@ -30,7 +46,7 @@ Use the TexoPub MCP tools. They run in the cloud and cannot read a local filesys
 
 ## Listing choice and permanent deletion
 
-Before each webpage publication or independent-file upload ask: “展示在哪里？不展示 / 仅个人主页 / 公开展示（默认）”. Read `get_my_space.default_listing` for the default suggestion. If the user already chose in the request or gave an applicable standing instruction, follow it without asking again. A suggested default is not an answer; when a reply is needed, wait for it. Initial default is `public`; the user may ask to change it using `set_publish_preferences(default_listing)` without changing existing works or opening their homepage. Changing a default alone does not suppress the publication question.
+Determine a new publication's listing using the question rules above. Updates retain the existing listing unless the user requests a change; do not ask again. Initial default is `public`; the user may ask to change it using `set_publish_preferences(default_listing)` without changing existing works or opening their homepage. Changing a default alone is not a standing instruction to use it without asking.
 
 `listing: unlisted` = 不展示 (only in the owner's management collection); `profile` = 仅个人主页 (only on their enabled personal homepage); `public` = 公开展示 (homepage and TexoPub discovery). All three modes keep the URL and dependencies accessible to anyone with the link. These are listing controls, not private authentication. Webpages and standalone assets share these listing rules and the space default; every published link allows anonymous access. Do not enable a personal homepage automatically.
 
@@ -40,7 +56,7 @@ When explicitly asked to permanently delete, read `get_work` then call `delete_w
 
 ## Publish a website
 
-1. Confirm the requested content is a static website and that the user requested publication. Creating a page alone is not permission to publish it. Do not upload credentials, source research, or unrelated files.
+1. Check that the requested content is a static website and the request authorizes publication; do not add a confirmation question when it is already explicit. Creating a page alone is not permission to publish it. Do not upload credentials, source research, or unrelated files.
 2. Read `list_categories` to choose a valid second-level `category_id` and appropriate `format`. Use the complete `group.id/child.id` path, e.g. `technology/software`, never the child ID `software` alone.
 3. For a new website, make a dedicated self-contained SVG icon matching its subject and pass it as `icon_svg`. A generic platform icon is not a work-specific icon.
 4. Use `publish_website`. Send a small self-contained page as `html`, additional text pages/CSS/JS as `text_files`, and authorized conversation files as `attachments` with matching `attachment_paths`. File values must be passed through the host's file mechanism, not a `sandbox:` URL or a local path. Relative paths preserve page and image links. Supply the complete file set, including all page dependencies.
