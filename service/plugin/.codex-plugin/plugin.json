@@ -1,6 +1,6 @@
 {
   "name": "texopub",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Publish and update static HTML websites and personal files in your TexoPub space from ChatGPT and Codex.",
   "author": {
     "name": "TexoPub",
@@ -24,7 +24,7 @@
     "defaultPrompt": [
       "把刚做好的网页发布到我的 TexoPub 空间。",
       "更新我之前发布的网页，保持原网址。",
-      "把这个文件存到我的私有素材库。"
+      "把这个文件上传到我的素材库，展示范围为不展示。"
     ],
     "privacyPolicyURL": "https://texopub.com/account-privacy/",
     "logo": "./assets/icon.png",

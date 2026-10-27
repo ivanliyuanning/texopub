@@ -15,7 +15,11 @@ def request(url,body=None,token=None,method=None,headers=None):
   tmp.write_bytes(body);tmp.chmod(0o600);cfg+=['data-binary = '+json.dumps('@'+str(tmp),ensure_ascii=False)]
  cfg+=['header = '+json.dumps(k+': '+v) for k,v in h.items()]
  if method=='HEAD':cfg+=['head']
- try:r=subprocess.run(['curl','--config','-','-w','\n%{http_code}'],input=('\n'.join(cfg)+'\n').encode(),capture_output=True)
+ try:
+  for attempt in range(3):
+   r=subprocess.run(['curl','--config','-','-w','\n%{http_code}'],input=('\n'.join(cfg)+'\n').encode(),capture_output=True)
+   if r.returncode==0:break
+   if attempt<2:time.sleep(attempt+1)
  finally:tmp.unlink(missing_ok=True)
  if r.returncode:raise RuntimeError('curl transport '+str(r.returncode))
  raw,status=r.stdout.rsplit(b'\n',1);return int(status),raw
@@ -37,14 +41,24 @@ def seed_mcp():
  c=json.loads(C.read_text());a=c['publisher'];admin=json.loads((ROOT/'.secrets/admin.json').read_text())
  if 'other' not in c:c['other']=checked(API+'/v1/admin/publishers',{'name':'Unified listing other temporary'},admin['token']);save(c)
  if 'oauth' not in c:
-  c['oauth']=[{'id':uuid.uuid4().hex,'client_id':uuid.uuid4().hex,'access':secrets.token_urlsafe(32),'refresh':secrets.token_urlsafe(32),'publisher_id':pid,'scope':scope} for pid,scope in [(a['publisher_id'],'texopub:read texopub:publish'),(a['publisher_id'],'texopub:read'),(c['other']['publisher_id'],'texopub:read texopub:publish')]];save(c)
+  c['oauth']=[{'id':uuid.uuid4().hex,'client_id':uuid.uuid4().hex,'access':'txo_'+secrets.token_urlsafe(32),'refresh':'txr_'+secrets.token_urlsafe(32),'publisher_id':pid,'scope':scope} for pid,scope in [(a['publisher_id'],'texopub:read texopub:publish'),(a['publisher_id'],'texopub:read'),(c['other']['publisher_id'],'texopub:read texopub:publish')]];save(c)
  at=int(time.time());sql=[]
  for g in c['oauth']:
   sql.extend(["INSERT OR IGNORE INTO oauth_grants(id,publisher_id,client_id,name,scope,created,expires) VALUES('%s','%s','%s','Unified listing temporary acceptance','%s',%d,%d)"%(g['id'],g['publisher_id'],g['client_id'],g['scope'],at,at+7200),"INSERT OR IGNORE INTO oauth_tokens(access_hash,refresh_hash,grant_id,expires,refresh_expires) VALUES('%s','%s','%s',%d,%d)"%(sha(g['access']),sha(g['refresh']),g['id'],at+7200,at+7200)])
  (E/'mcp-seed.sql').write_text(';\n'.join(sql)+';\n');print(json.dumps({'temporary_grants':3,'sql_file':str(E/'mcp-seed.sql')}))
 
 def run():
- c=json.loads(C.read_text());a=c['publisher'];checks=[];client=E/'downloaded-commonplace.py';client.write_bytes(checked(APP+'/downloads/commonplace.py'));cred=ROOT/'.secrets/unified-listing-cli.json';cred.write_text(json.dumps({'api':API,'token':a['token']}));cred.chmod(0o600)
+ c=json.loads(C.read_text());a=c['publisher'];checks=[]
+ # Resume failed acceptance with a clean, disposable fixture set.
+ for w in checked(API+'/v1/me/works',token=a['token'])['items']:
+  if w['id']==c['transport']['id']:continue
+  for _ in range(20):
+   deleted=checked(API+'/v1/me/works/'+w['id']+'/delete',{'expected_version':w.get('version'),'confirm':True},a['token'])
+   if deleted['deleted']:break
+  else:raise RuntimeError('Previous test fixture cleanup incomplete')
+ c['works']=[];c['run_id']=uuid.uuid4().hex[:8];save(c)
+ for receipt in E.glob('.commonplace-unified-*.json'):receipt.unlink()
+ client=E/'downloaded-commonplace.py';client.write_bytes(checked(APP+'/downloads/commonplace.py'));cred=ROOT/'.secrets/unified-listing-cli.json';cred.write_text(json.dumps({'api':API,'token':a['token']}));cred.chmod(0o600)
  original=E/'fixture.txt';original.write_text('TexoPub unified listing original bytes.\n');page=E/'fixture.html';page.write_text('<!doctype html><html><head><title>Temporary listing acceptance</title></head><body>Unified listing acceptance</body></html>');icon=E/'fixture-icon.svg';icon.write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path fill="#245530" d="M2 2h28v28H2z"/></svg>')
  def cli(*args):
   r=subprocess.run([sys.executable,str(client),'--credential',str(cred),*map(str,args)],cwd=E,capture_output=True,text=True)
@@ -58,7 +72,7 @@ def run():
  tools=rpc('tools/list',{})['result']['tools'];assert len(tools)==20;schema=next(x for x in tools if x['name']=='upload_asset');assert schema['inputSchema']['properties']['listing']['enum']==['unlisted','profile','public'];checks.append('Production MCP advertises unified asset listing schema (20 tools)')
  for kind in ['asset','work']:
   for listing in ['unlisted','profile','public']:
-   slug='unified-'+kind+'-'+listing
+   slug='unified-'+kind+'-'+listing+'-'+c['run_id']
    cmd=['assets',original] if kind=='asset' else ['publish',page,'--category','technology/software','--icon',icon]
    pub=cli(*cmd,'--slug',slug,'--title','Temporary unified '+kind+' '+listing,'--listing',listing);c['works'].append(pub);save(c);w=cli('show',pub['work_id']);assert w['listing']==listing
    assert request(w['url'])[0]==200;assert request(w['url'],method='HEAD')[0]==200
@@ -74,7 +88,7 @@ def run():
     current=cli('show',new['work_id']);closed=tool('set_asset_visibility',{'work_id':current['id'],'expected_version':current['version'],'expected_revision':current['revision'],'listing':'unlisted'});assert closed['listing']=='unlisted';assert checked(w['url'])==original.read_bytes()
    checks.append(kind+' '+listing+': anonymous links, correct discovery, MCP listing and cross-owner/read-only mutation guards')
  # Incomplete draft remains unavailable over the old alias and content origin.
- raw=b'uncommitted';u=checked(API+'/v1/uploads',{'kind':'asset','slug':'unified-incomplete','title':'Temporary incomplete draft','listing':'public','files':[{'path':'draft.txt','bytes':len(raw),'sha256':sha(raw)}]},a['token'],headers={'Idempotency-Key':'unified-incomplete'});c['works'].append({'work_id':u['work_id'],'version':None});save(c);checked(API+u['files'][0]['upload_path'],raw,a['token'],'PUT');assert request(u['files'][0]['url'])[0]==404;assert request(APP+'/api/v1/me/files/'+u['upload_id']+'/draft.txt')[0]==404;checks.append('Uploaded but uncommitted draft remains inaccessible via both content and legacy aliases')
+ raw=b'uncommitted';u=checked(API+'/v1/uploads',{'kind':'asset','slug':'unified-incomplete-'+c['run_id'],'title':'Temporary incomplete draft','listing':'public','files':[{'path':'draft.txt','bytes':len(raw),'sha256':sha(raw)}]},a['token'],headers={'Idempotency-Key':'unified-incomplete-'+c['run_id']});c['works'].append({'work_id':u['work_id'],'version':None});save(c);checked(API+u['files'][0]['upload_path'],raw,a['token'],'PUT');assert request(u['files'][0]['url'])[0]==404;assert request(APP+'/api/v1/me/files/'+u['upload_id']+'/draft.txt')[0]==404;checks.append('Uploaded but uncommitted draft remains inaccessible via both content and legacy aliases')
  (E/'live-acceptance.json').write_text(json.dumps({'checks':checks,'test_works':len(c['works']),'all_passed':True},indent=2)+'\n');print(json.dumps({'passed':len(checks),'test_works':len(c['works'])}))
 
 def cleanup():
