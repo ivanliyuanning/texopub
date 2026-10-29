@@ -9,10 +9,15 @@ const ROOT=path.resolve(__dirname,'..');
 const digest=b=>createHash('sha256').update(b).digest('hex');
 const admin='test-owner-key-not-for-production';
 let mf;
+const legacyRequests=[];
+const legacyHtml='<!doctype html><html><body>Original Suzhou reader</body></html>';
 before(async()=>{
  await esbuild.build({entryPoints:[path.join(ROOT,'worker.mjs')],outfile:path.join(ROOT,'worker.bundle.mjs'),bundle:true,format:'esm',target:'es2022',loader:{'.html':'text'}});
  const script=readFileSync(path.join(ROOT,'worker.bundle.mjs'),'utf8');
- mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'api',script,modules:true,compatibilityDate:'2026-10-22',d1Databases:{DB:'test-db'},r2Buckets:{FILES:'test-files'},bindings:{ROLE:'api',ADMIN_TOKEN_SHA256:digest(admin),CONTENT_ORIGIN:'https://content.example'}},{name:'content',script,modules:true,compatibilityDate:'2026-10-22',d1Databases:{DB:'test-db'},r2Buckets:{FILES:'test-files'},bindings:{ROLE:'content',CONTENT_ORIGIN:'https://content.example'}}]}));
+ mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'api',script,modules:true,compatibilityDate:'2026-10-22',d1Databases:{DB:'test-db'},r2Buckets:{FILES:'test-files'},bindings:{ROLE:'api',ADMIN_TOKEN_SHA256:digest(admin),CONTENT_ORIGIN:'https://content.example'}},{name:'content',script,modules:true,compatibilityDate:'2026-10-22',d1Databases:{DB:'test-db'},r2Buckets:{FILES:'test-files'},bindings:{ROLE:'content',CONTENT_ORIGIN:'https://content.example'},outboundService:request=>{
+  const url=new URL(request.url);assert.equal(url.origin,'https://co-created-library-lyn.pages.dev');legacyRequests.push({url:request.url,method:request.method});
+  return new Response(request.method==='HEAD'?null:legacyHtml,{headers:{'Content-Type':'text/html; charset=utf-8'}});
+ }}]}));
  const db=await mf.getD1Database('DB','api');
  await db.batch(JSON.parse(readFileSync(path.join(ROOT,'schema-statements.json'),'utf8')).map(sql=>db.prepare(sql)));
 });
@@ -165,8 +170,18 @@ test('trusted legacy migration removes duplicate catalog entry, preserves alias 
  await db.batch([db.prepare('UPDATE works SET metadata=? WHERE id=?').bind(JSON.stringify(metadata),w.id),db.prepare('UPDATE versions SET metadata=? WHERE id=?').bind(JSON.stringify(metadata),w.version)]);
  const catalog=(await call('GET','/v1/catalog')).data.items;assert(!catalog.some(x=>x.id==='suzhou-museum'));assert.equal(catalog.filter(x=>x.legacy_id==='suzhou-museum').length,1);assert.equal(catalog.find(x=>x.id===w.id).url,'https://texopub.com/p/suzhou-museum/');
  const alias=await call('GET','https://content.example/p/suzhou-museum/');assert.equal(alias.status,200);assert.match(alias.data,/src="\/p\/suzhou-museum\/_content\/index.html"/);assert.match(alias.data,/sandbox="[^"]*allow-same-origin/);
+ // Browsers may retain the old Pages redirect from index.html to its directory.
+ for(const suffix of ['', 'index.html']){
+  const reader=await call('GET','https://content.example/p/suzhou-museum/_content/'+suffix+'?reader=1');
+  assert.equal(reader.status,200,JSON.stringify(reader.data));assert.equal(reader.data,legacyHtml);assert.equal(reader.headers.get('cache-control'),'no-store');
+  assert.equal(legacyRequests.at(-1).url,'https://co-created-library-lyn.pages.dev/p/suzhou-museum/_content/index.html?reader=1');
+  const head=await call('HEAD','https://content.example/p/suzhou-museum/_content/'+suffix);assert.equal(head.status,200);assert.equal(head.data,'');assert.equal(legacyRequests.at(-1).method,'HEAD');
+ }
+ const requestsBefore=legacyRequests.length;assert.equal((await call('GET','https://content.example/p/suzhou-museum/_content/%252e%252e/secret.html')).status,400);assert.equal(legacyRequests.length,requestsBefore);
  const normal=await call('GET','https://content.example/p/'+p.publisher_id+'/suzhou-museum/');assert(!/sandbox="[^"]*allow-same-origin/.test(normal.data));
  const update=pkg('suzhou-museum','New version');u=await start(p,update,{work_id:w.id,expected_version:w.version,legacy_id:'evil'});await send(p,u.data,update);done=await commit(p,u.data);assert.equal(done.data.work.legacy_id,'suzhou-museum');assert.equal(done.data.work.url,'https://texopub.com/p/suzhou-museum/');const newer=await call('GET','https://content.example/p/suzhou-museum/');assert.equal(newer.status,200);assert.match(newer.data,/src="https:\/\/content.example\/_texopub\/content\/v\//);assert(!/sandbox="[^"]*allow-same-origin/.test(newer.data));
+ await call('POST','/v1/admin/works/'+w.id+'/hide',{},admin);
+ for(const suffix of ['', 'index.html'])assert.equal((await call('GET','https://content.example/p/suzhou-museum/_content/'+suffix)).status,404);
 });
 
 test('automatic short URLs retain ownership, versions and sandbox isolation',async()=>{

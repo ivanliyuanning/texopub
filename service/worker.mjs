@@ -147,8 +147,10 @@ async function content(request,env,url){
  // raw route must still consult the work lifecycle before reading static Pages.
  if(url.pathname.startsWith('/p/suzhou-museum/_content/')){
   const w=await first(env,"SELECT id FROM works WHERE json_extract(metadata,'$.legacy_id')='suzhou-museum' AND status='published' AND deleted_at IS NULL");if(!w)fail(404,'作品已下架或删除');
-  path(decodeURIComponent(url.pathname.slice('/p/suzhou-museum/_content/'.length)));
-  const source=new URL(url.pathname+url.search,env.LEGACY_PAGES_ORIGIN||'https://co-created-library-lyn.pages.dev');
+  // Older Pages responses redirected index.html to this directory. Accept that
+  // URL too, including browsers that still retain the permanent redirect.
+  const relative=path(decodeURIComponent(url.pathname.slice('/p/suzhou-museum/_content/'.length))||'index.html');
+  const source=new URL('/p/suzhou-museum/_content/'+encoded(relative)+url.search,env.LEGACY_PAGES_ORIGIN||'https://co-created-library-lyn.pages.dev');
   const r=await fetch(source,{method:request.method,headers:request.headers.has('Range')?{Range:request.headers.get('Range')}:{}}),h=new Headers(r.headers);h.set('Cache-Control','no-store');return new Response(r.body,{status:r.status,headers:h});
  }
  const raw=url.pathname.startsWith('/_texopub/content/');
