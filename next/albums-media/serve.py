@@ -3,6 +3,7 @@ from pathlib import Path
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlsplit, unquote
 import argparse, json, mimetypes, re, threading
+from prepare_resources import prepare
 
 BASE=Path(__file__).resolve().parent
 PROJECT=BASE.parents[1]
@@ -17,6 +18,9 @@ class Handler(BaseHTTPRequestHandler):
     external=False
     primary_port=8792
     external_port=8793
+    resource_manifest={}
+    resource_files={}
+    prepared_html=None
     def log_message(self,*args): pass
     def do_OPTIONS(self):
         self.send_response(204);self.send_header('Access-Control-Allow-Origin','*');self.send_header('Access-Control-Allow-Headers','Range');self.send_header('Access-Control-Allow-Methods','GET,HEAD,OPTIONS');self.end_headers()
@@ -32,16 +36,23 @@ class Handler(BaseHTTPRequestHandler):
         if url.startswith('/api/') or url.startswith('/v1/'):
             return self.send_error(404,'No production API in this preview')
         if self.external:
-            if url=='/watch/022-1/':
-                html='''<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>外部播放页 · 本地预览</title><style>body{background:#f6f5ed;color:#223e34;font:16px/1.8 system-ui;margin:0}main{max-width:1000px;margin:auto;padding:35px 20px}h1{font-size:30px}video{width:100%;border-radius:12px}small{color:#62716d}a{color:#b34c31}</style><main><small>外部站点播放预览 · 第二个本机源</small><h1>022-1 · 蓝场与邻场</h1><p>这是外部平台跳转的本地测试页，不代表已适配第三方平台嵌入。</p><video controls playsinline preload="metadata" src="/media/022-1.mp4"></video><p>原片 01:42–01:54 · 12秒预览片段</p></main></html>'''
-                return self.send_bytes(html.encode(),'text/html; charset=utf-8',head)
-            p=MEDIA/'022-1.mp4' if url=='/media/022-1.mp4' else None
+            p=self.resource_files.get(url)
         elif url=='/preview-config.json':
             return self.send_bytes(json.dumps({'externalOrigin':f'http://127.0.0.1:{self.external_port}'}).encode(),'application/json',head)
+        elif url=='/resource-manifest.json':
+            return self.send_bytes(json.dumps(self.resource_manifest,ensure_ascii=False).encode(),'application/json',head)
+        elif url=='/dependency-check/':
+            items=self.resource_manifest['items']
+            video=next(x for x in items if x['mime']=='video/mp4')
+            audio=next((x for x in items if x['mime']=='audio/wav'),None)
+            if audio is None:return self.send_error(503,'Audio fixture is missing')
+            html=f'''<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>网页内音视频引用验收 · 技术样例</title><style>body{{background:#faf8f3;color:#223e34;font:16px/1.8 system-ui;margin:0}}main{{max-width:920px;margin:auto;padding:30px 20px}}h1{{font-size:28px;line-height:1.5}}h2{{font-size:20px;margin-top:30px}}video{{width:100%;max-height:470px;background:#1b3029;border-radius:9px}}audio{{width:100%}}p{{color:#62716d}}small{{font-size:13px}}a{{color:#b24d31}}</style><main><small>本地资源依赖验收 · 不属于专辑内容</small><h1>播放器留在网页，媒体来自独立资源地址。</h1><p>这份技术样例分别用 video/source 与 audio/source 引用素材。默认不预下载媒体，点击后才播放；没有独立音视频作品页。</p><h2>网页中的视频</h2><video id="fixture-video" controls playsinline preload="none"><source src="{video['url']}" type="video/mp4"></video><h2>网页中的音频</h2><audio id="fixture-audio" controls preload="none"><source src="{audio['url']}" type="audio/wav"></audio><p><a href="/preview/">返回验收面板</a></p></main></html>'''
+            return self.send_bytes(html.encode(),'text/html; charset=utf-8',head)
         elif url=='/snapshots/catalog.json': p=PROJECT/'next/data/catalog.json'
         elif url.startswith('/brand/'):p=under(PROJECT/'templates/brand',url[len('/brand/'):])
         elif url.startswith('/shared/'):
             name=url[len('/shared/'):];p=PROJECT/'templates/community'/name if name in {'style.css','icons.mjs','identity.mjs','loading.mjs'} else None
+        elif url=='/preview-assets/annotation/index.html':p=self.prepared_html
         elif url.startswith('/preview-assets/annotation/'):
             p=under(EVIDENCE/'staging/tennis-annotation',url[len('/preview-assets/annotation/'):])
         elif url.startswith('/preview-assets/'):
@@ -72,7 +83,7 @@ class Handler(BaseHTTPRequestHandler):
             if start>=total or start>end:return self.range_error(total)
             status=206
         self.send_response(status)
-        headers={'Content-Type':mime,'Content-Length':str(max(0,end-start+1)),'Accept-Ranges':'bytes','Cache-Control':'no-store','Access-Control-Allow-Origin':'*','Access-Control-Expose-Headers':'Content-Range,Content-Length,Accept-Ranges','X-Content-Type-Options':'nosniff','Cross-Origin-Resource-Policy':'cross-origin'}
+        headers={'Content-Type':mime,'Content-Length':str(max(0,end-start+1)),'Accept-Ranges':'bytes','Cache-Control':'public,max-age=300' if urlsplit(self.path).path.startswith('/resources/') else 'no-store','Access-Control-Allow-Origin':'*','Timing-Allow-Origin':'*','Access-Control-Expose-Headers':'Content-Range,Content-Length,Accept-Ranges','X-Content-Type-Options':'nosniff','Cross-Origin-Resource-Policy':'cross-origin'}
         if status==206:headers['Content-Range']=f'bytes {start}-{end}/{total}'
         for k,v in headers.items():self.send_header(k,v)
         self.end_headers()
@@ -91,6 +102,7 @@ class Handler(BaseHTTPRequestHandler):
 if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('--port',type=int,default=8792);args=parser.parse_args()
     Handler.primary_port=args.port;Handler.external_port=args.port+1
+    Handler.resource_manifest,Handler.resource_files,Handler.prepared_html=prepare(f'http://127.0.0.1:{args.port+1}')
     External=type('External',(Handler,),{'external':True})
     primary=ThreadingHTTPServer(('127.0.0.1',args.port),Handler)
     try:external=ThreadingHTTPServer(('127.0.0.1',args.port+1),External)
