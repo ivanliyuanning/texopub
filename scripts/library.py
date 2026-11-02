@@ -180,13 +180,13 @@ def work_viewer(root, original, icon, source, public_root, raw_root, entry):
     parser.parts = []
     parser.feed(original)
     title = ''.join(parser.parts).strip() or 'TexoPub 作品'
-    values = {'TITLE': escaped(title), 'ICON': escaped(icon), 'SOURCE': escaped(source),
+    values = {'ALBUM_LINK':'','TITLE': escaped(title), 'ICON': escaped(icon), 'SOURCE': escaped(source),
               # These are the existing owner's static pages, already trusted at the
               # main origin. Keep their storage and interactions; cloud uploads use
               # an opaque-origin sandbox without allow-same-origin instead.
               'SANDBOX': 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads',
               'CONFIG': json.dumps({'publicRoot': public_root, 'rawRoot': raw_root, 'entry': entry}, ensure_ascii=False).replace('<', '\\u003c')}
-    return re.sub(r'\{\{(TITLE|ICON|SOURCE|SANDBOX|CONFIG)\}\}', lambda m: values[m[1]], (root / 'templates/work-viewer.html').read_text())
+    return re.sub(r'\{\{(TITLE|ICON|SOURCE|SANDBOX|CONFIG|ALBUM_LINK)\}\}', lambda m: values[m[1]], (root / 'templates/work-viewer.html').read_text())
 
 
 def remote_bytes(url):
@@ -572,6 +572,8 @@ def community_site(root, site):
     from localize import localize_community
     localize_community(root, target)
     html = (root / 'templates/community/index.html').read_text()
+    album_style_version=digest((target/'albums.css').read_bytes())[:12]
+    html=html.replace('</head>','<link rel="stylesheet" href="/community/albums.css?v='+album_style_version+'"></head>')
     loading_source = (target / 'loading.mjs').read_text().removeprefix('export const loadingMarkup = ').strip().removesuffix(';')
     html = html.replace('<!-- COMMUNITY_LOADING -->', json.loads(loading_source))
     loading_version = digest((target / 'loading.mjs').read_bytes())[:12]
@@ -586,7 +588,7 @@ def community_site(root, site):
         source = re.sub(r"(from |import\()(['\"])(\./[^'\"]+?\.mjs)(?:\?v=[a-f0-9]+)?(['\"])", lambda m: m[1]+m[2]+m[3]+'?v='+version+m[4], source)
         module.write_text(source)
     html = html.replace('/community/entry.mjs', '/community/entry.mjs?v=' + version)
-    routes = ['', 'materials', 'publish', 'for-ai', 'space', 'space/works', 'space/materials',
+    routes = ['', 'materials', 'publish', 'for-ai', 'space', 'space/works', 'space/albums', 'albums', 'space/materials',
               'space/settings', 'space/settings/keys', 'space/account', 'login', 'u', 'profile',
               'about', 'plugins/texopub', 'account-privacy']
     for route in routes:
@@ -596,7 +598,7 @@ def community_site(root, site):
     (site / '404.html').write_text(html)
     base = "/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n/community/*\n  Cache-Control: no-cache\n/categories.json\n  Access-Control-Allow-Origin: *\n  Cache-Control: no-cache\n"
     policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
-    for path in ['/', '/materials/*', '/publish/*', '/for-ai/', '/space/*', '/login/*', '/u/*', '/profile/*', '/about/*', '/plugins/texopub/*', '/account-privacy/*']:
+    for path in ['/', '/materials/*', '/publish/*', '/for-ai/', '/space/*', '/albums/*', '/login/*', '/u/*', '/profile/*', '/about/*', '/plugins/texopub/*', '/account-privacy/*']:
         base += path + "\n  Cache-Control: no-store\n  X-Frame-Options: DENY\n  Referrer-Policy: no-referrer\n  Cross-Origin-Opener-Policy: same-origin\n  Content-Security-Policy: " + policy + "\n"
     (site / '_headers').write_text(base)
 

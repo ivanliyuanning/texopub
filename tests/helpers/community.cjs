@@ -20,9 +20,11 @@ async function open(path='/',options={}){
   else if(p==='auth/status')data={sms:true,email:true};
   else if(p==='auth/challenge'){if(options.delayChallenge)await new Promise(r=>challengeResolve=r);data={challenge_id:'challenge',retry_after:60,message:'验证码已发送'}}
   else if(p==='auth/verify'){assert.equal(body.code,'123456');logged=true;data={logged_in:true}}
-  else if(p.startsWith('profiles/')){if(options.profile404){status=404;data={error:'主页未公开'}}else {const id=p.split('/')[1];data={...identity,id,publisher_id:id,ai_partners:options.partner?[{id:'9'.repeat(32),application:'Codex',name:'织织'}]:[],items:[{...work,publisher_id:id}],materials:options.profileMaterials||[]}}}
+  else if(p.startsWith('profiles/')){if(options.profile404){status=404;data={error:'主页未公开'}}else {const id=p.split('/')[1];data={...identity,id,publisher_id:id,ai_partners:options.partner?[{id:'9'.repeat(32),application:'Codex',name:'织织'}]:[],items:[{...work,publisher_id:id}],materials:options.profileMaterials||[],albums:options.profileAlbums||[]}}}
+  else if(p.startsWith('albums/')){if(options.album){data=options.album}else{status=404;data={error:'专辑暂不可用'}}}
   else if(!logged||expired){status=401;data={error:'登录已过期'}}
   else if(p==='account')data={publisher_id:pid,name:identity.name,phone:'139****1111',email:null,default_listing:'profile',profile_public:profilePublic,reauth_required:false};
+  else if(p==='me/albums')data={items:options.albums||[]};
   else if(p==='me/profile')data=identity;
   else if(p==='me/works')data={items:own};
   else if(p==='me/materials'){if(options.delayMaterials)await new Promise(r=>options.materialsReady=r);data={items:[{id:v+'/private.txt',name:'私有笔记.txt',collection:'个人资料',mime:'text/plain',bytes:40,listing:'unlisted',kind:'asset',url:'https://content.texopub.com/v/'+v+'/private.txt'}]};}

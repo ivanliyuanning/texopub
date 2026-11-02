@@ -1,3 +1,7 @@
+# 专辑与网页资源（2026-11-02，Skill2.4.0 / MCP0.5.0 / 插件0.6.0）
+
+迁移0009新增专辑、成员与精确版本依赖及引用保护。专辑仅网页、unlisted/profile，展示与成员独立；主页专辑区在作者资料下。CLI自动分离原字节图片/音视频、SHA复用、unlisted资源组与引用改写；MCP用prepare_upload(kind=asset)分步上传资源后由AI改写网页并传dependencies。更新工具从20增至24（list_my_albums/get_album/save_album/delete_album）；OAuth scopes不变，既有连接必须刷新并在新对话实际验收。专辑删除保留成员，引用中的素材不可归档或删除。封面推荐1600×900 PNG/JPEG/WebP≤5MiB，默认生成。详细操作见公共Skill及for-ai/openapi.json；发布/验收状态见项目任务进度与docs/专辑与资源接入状态.md。
+
 # 苏博旧正文目录地址兼容（2026-10-29）
 
 `/p/suzhou-museum/_content/` 与该目录的 `index.html` 均先检查作品生命周期，再代理相同的原 Pages 正文。浏览器可能保留旧 Pages 将 `index.html` 重定向到目录的记录；目录空路径按 `index.html` 处理，避免出现标题栏正常、正文报“无效的文件路径”。查询参数和 HEAD 保留，其他文件路径继续严格校验。只修内容 Worker，无作品重发、元数据变更或数据库迁移。

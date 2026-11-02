@@ -14,3 +14,5 @@ Search by title, summary, tags and category. Open promising works and distinguis
 Use `list_my_works` / `my-works` and `list_my_materials` / `my-materials` for the owner's collections. Management collections require owner authorization; every published file URL can be accessed anonymously.
 
 Unlisted/Profile only/Public govern listing placement. They apply equally to webpages and independent files, and do not restrict link access. Profile-only files appear on an enabled homepage, public files also enter discovery, and unlisted files appear in neither public list. A public personal profile is opt-in and can be enabled only by the human.
+
+Albums: /space/albums/ for owned albums, /albums/{id}/ for anonymous sharing. Enabled homepages show profile albums only, independently of member listing. Resource groups display files; media plays inside webpages.

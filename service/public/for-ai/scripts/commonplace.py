@@ -14,12 +14,13 @@ def request(api,path,token=None,body=None,method='GET',idem=None,binary=False):
     if token: headers['Authorization']='Bearer '+token
     if body is not None:
         if not binary:body=json.dumps(body,ensure_ascii=False).encode();headers['Content-Type']='application/json'
+        else:headers['Content-Type']='application/octet-stream'
         headers['Content-Length']=str(len(body))
     if idem:headers['Idempotency-Key']=idem
     req=urllib.request.Request(api.rstrip('/')+path,data=body,headers=headers,method=method)
     for attempt in range(3):
         try:
-            with urllib.request.urlopen(req,timeout=90) as response:return json.load(response)
+            with urllib.request.urlopen(req,timeout=300 if binary else 90) as response:return json.load(response)
         except urllib.error.HTTPError as exc:
             message=exc.read(4096).decode(errors='replace')
             try:message=json.loads(message).get('error',message)
@@ -31,6 +32,7 @@ def request(api,path,token=None,body=None,method='GET',idem=None,binary=False):
             raise Error('网络请求失败：'+str(exc.reason)) from None
 
 def collect(source):
+    source=source.resolve()
     base=source if source.is_dir() else source.parent
     def allowed(p):return p.is_file() and not p.is_symlink() and p.suffix.lower() in CODE|MEDIA and not any(x.startswith('.') or x in EXCLUDE for x in p.relative_to(base).parts)
     if source.is_dir():
@@ -53,11 +55,16 @@ def collect(source):
         if p in found:continue
         if not p.is_relative_to(base.resolve()) or not allowed(p):raise Error('网页依赖越界或不支持：'+p.name)
         found.add(p)
-        if p.suffix.lower() not in {'.html','.htm','.css','.js','.mjs'}:continue
-        content=p.read_text();refs=Refs()
+        if p.suffix.lower() not in TEXT_EXT:continue
+        content=DATA_URI.sub('"embedded-media"',p.read_text());refs=Refs()
         if p.suffix.lower() in {'.html','.htm'}:refs.feed(content)
         refs.urls.extend(m.group(2) for m in re.finditer(r'url\(\s*([\"\']?)(.*?)\1\s*\)',content))
         if p.suffix.lower() in {'.js','.mjs'}:refs.urls.extend(re.findall(r'''(?:fetch\s*\(|new URL\s*\(|from\s+)\s*["']([^"']+)["']''',content))
+        for m in QUOTED_URL.finditer(content):
+            u=m.group('value');parsed=urllib.parse.urlsplit(u)
+            if not parsed.scheme and not parsed.netloc and Path(parsed.path).suffix.lower() in MEDIA:
+                candidate=(p.parent/urllib.parse.unquote(parsed.path)).resolve()
+                if candidate.is_relative_to(base.resolve()) and candidate.is_file():refs.urls.append(u)
         for u in refs.urls:
             parsed=urllib.parse.urlsplit(html.unescape(u))
             if parsed.scheme=='file':raise Error('不允许file://本机链接')
@@ -68,12 +75,121 @@ def collect(source):
             elif Path(parsed.path).suffix.lower() in CODE|MEDIA:raise Error('缺少本地依赖：'+parsed.path)
     return base,source,sorted(found)
 
+RESOURCE_EXT={'.png','.jpg','.jpeg','.webp','.gif','.svg','.avif','.ico','.mp4','.webm','.mov','.mp3','.wav','.m4a','.ogg'}
+DATA_URI=re.compile(r'data:((?:image|video|audio)/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=\r\n]+)')
+MIME_EXT={'image/jpeg':'.jpg','image/png':'.png','image/webp':'.webp','image/gif':'.gif','image/svg+xml':'.svg','image/avif':'.avif','image/x-icon':'.ico','video/mp4':'.mp4','video/webm':'.webm','video/quicktime':'.mov','audio/mpeg':'.mp3','audio/wav':'.wav','audio/x-wav':'.wav','audio/mp4':'.m4a','audio/ogg':'.ogg'}
+TEXT_EXT={'.html','.htm','.css','.js','.mjs','.json'}
+QUOTED_URL=re.compile(r'''(?P<quote>["'])(?P<value>[^"'\r\n<>]{1,2048})(?P=quote)''')
+
+def extract_embedded(payload):
+    for name,data in list(payload.items()):
+        if Path(name).suffix.lower() not in TEXT_EXT:continue
+        def extract(match):
+            ext=MIME_EXT.get(match.group(1).lower())
+            if not ext:raise Error('暂不支持的内嵌媒体类型：'+match.group(1))
+            try:raw=base64.b64decode(re.sub(r'\s','',match.group(2)),validate=True)
+            except ValueError:raise Error('内嵌媒体base64无效')
+            dest='assets/embedded-'+hashlib.sha256(raw).hexdigest()+ext
+            payload[dest]=raw
+            return posixpath.relpath(dest,posixpath.dirname(name) or '.')
+        payload[name]=DATA_URI.sub(extract,data.decode('utf8')).encode()
+    return payload
+
+def replace_resource_urls(payload,resolve):
+    rewritten=dict(payload)
+    for name,data in payload.items():
+        if Path(name).suffix.lower() not in TEXT_EXT:continue
+        def quoted(m):
+            replacement=resolve(name,m.group('value'))
+            return m.group('quote')+replacement+m.group('quote') if replacement is not None else m.group(0)
+        text=QUOTED_URL.sub(quoted,data.decode('utf8'))
+        def css(m):
+            value=m.group(2);replacement=resolve(name,value)
+            return 'url('+m.group(1)+replacement+m.group(1)+')' if replacement is not None else m.group(0)
+        text=re.sub(r'''url\(\s*(["']?)([^)"']+)\1\s*\)''',css,text)
+        def srcset(m):
+            items=[]
+            for item in m.group(3).split(','):
+                bits=item.strip().split(None,1)
+                if not bits:continue
+                replacement=resolve(name,bits[0])
+                items.append((replacement or bits[0])+(' '+bits[1] if len(bits)>1 else ''))
+            return m.group(1)+m.group(2)+', '.join(items)+m.group(2)
+        text=re.sub(r"""(\bsrcset\s*=\s*)(["'])(.*?)\2""",srcset,text,flags=re.I)
+        def bare(m):
+            replacement=resolve(name,m.group(2))
+            return m.group(1)+replacement if replacement is not None else m.group(0)
+        text=re.sub(r'''(\b(?:src|poster)\s*=\s*)([^\s"'<>]+)''',bare,text,flags=re.I)
+        rewritten[name]=text.encode()
+    return rewritten
+
+def upload_resource_bundle(api,token,payload):
+    files=[{'path':p,'bytes':len(b),'sha256':hashlib.sha256(b).hexdigest()} for p,b in sorted(payload.items())]
+    fingerprint=hashlib.sha256(json.dumps(files,sort_keys=True).encode()).hexdigest()
+    body={'kind':'asset','slug':'resources-'+fingerprint[:24],'title':'网页依赖资源','listing':'unlisted','files':files,'idempotency_key':'resources-'+fingerprint}
+    session=request(api,'/v1/uploads',token,body,'POST',idem=body['idempotency_key'])
+    for f in session['files']:
+        if not f['ready']:
+            print('上传网页资源 '+f['path']+' ('+str(f['bytes'])+' bytes)',file=sys.stderr,flush=True)
+            request(api,f['upload_path'],token,payload[f['path']],'PUT',binary=True)
+    done=request(api,session['commit_path'],token,{},'POST')
+    return {f['path']:{'work_id':done['work']['id'],'version':done['work']['version'],'path':f['path'],'url':f['url']} for f in session['files']}
+
+def externalize_resources(api,token,payload,excluded,old_work_id=None):
+    candidates={name for name in payload if Path(name).suffix.lower() in RESOURCE_EXT and name not in excluded}
+    used=set()
+    def local_path(name,value):
+        value=html.unescape(value.replace('\\/','/'));u=urllib.parse.urlsplit(value)
+        if u.scheme or u.netloc or not u.path:return None
+        relative=posixpath.normpath(urllib.parse.unquote(u.path).lstrip('/') if u.path.startswith('/') else posixpath.join(posixpath.dirname(name),urllib.parse.unquote(u.path)))
+        return relative if relative in candidates else None
+    def inspect(name,value):
+        candidate=local_path(name,value)
+        if candidate:used.add(candidate)
+        return None
+    replace_resource_urls(payload,inspect)
+    if any(len(payload[p])>25*1024**2 for p in used):raise Error('单份媒体超过当前25MiB上限；未上传或降低原件质量')
+    known=request(api,'/v1/me/materials',token)['items']
+    by_url={x['url']:{'work_id':x['work_id'],'version':x['version'],'path':x['name'],'url':x['url']} for x in known if x.get('kind')=='asset'}
+    if old_work_id:
+        old=request(api,'/v1/me/works/'+old_work_id,token)
+        for x in old.get('dependency_files',[]):by_url[x['url']]=x
+    mappings={};new={};sha_paths={}
+    for name in sorted(used):
+        raw=payload[name];sha=hashlib.sha256(raw).hexdigest()
+        hit=next((x for x in known if x.get('kind')=='asset' and x.get('sha256')==sha and x['bytes']==len(raw)),None)
+        if hit:mappings[name]={'work_id':hit['work_id'],'version':hit['version'],'path':hit['name'],'url':hit['url']}
+        else:
+            dest='media/'+sha+Path(name).suffix.lower();new[dest]=raw;sha_paths[name]=dest
+    batches=[];batch={};total=0
+    for name,data in sorted(new.items()):
+        if batch and (len(batch)>=250 or total+len(data)>100*1024**2):batches.append(batch);batch={};total=0
+        batch[name]=data;total+=len(data)
+    if batch:batches.append(batch)
+    uploaded={}
+    for batch in batches:uploaded.update(upload_resource_bundle(api,token,batch))
+    for name,dest in sha_paths.items():mappings[name]=uploaded[dest]
+    references={}
+    def resolve(name,value):
+        u=urllib.parse.urlsplit(html.unescape(value.replace('\\/','/')));candidate=local_path(name,value)
+        ref=mappings.get(candidate) if candidate else by_url.get(urllib.parse.urlunsplit((u.scheme,u.netloc,u.path,'','')))
+        if not ref:return None
+        key=(ref['work_id'],ref['version'],ref['path']);references[key]={k:ref[k] for k in ['work_id','version','path']}
+        return ref['url']+('?' +u.query if u.query else '')+('#'+u.fragment if u.fragment else '')
+    rewritten=replace_resource_urls(payload,resolve)
+    for name in used:rewritten.pop(name,None)
+    return rewritten,list(references.values())
+
 def main(argv=None):
     ap=argparse.ArgumentParser(description='TexoPub.ai远程发布客户端：无需Cloudflare账号或Wrangler')
     ap.add_argument('--api',default=DEFAULT_API)
     ap.add_argument('--credential',type=Path,default=Path(os.environ.get('COMMONPLACE_CREDENTIAL',str(Path.home()/'.config/commonplace/credential.json'))))
     subs=ap.add_subparsers(dest='command',required=True)
     subs.add_parser('categories');subs.add_parser('me');subs.add_parser('list');subs.add_parser('materials');subs.add_parser('my-works');subs.add_parser('my-materials')
+    subs.add_parser('my-albums')
+    album_show=subs.add_parser('album');album_show.add_argument('album_id')
+    album_save=subs.add_parser('album-save');album_save.add_argument('body',type=Path);album_save.add_argument('--album-id')
+    album_delete=subs.add_parser('album-delete');album_delete.add_argument('album_id');album_delete.add_argument('--expected-revision',type=int,required=True);album_delete.add_argument('--confirm',action='store_true',required=True)
     subs.add_parser('profile');subs.add_parser('partners')
     profile_update=subs.add_parser('profile-update');profile_update.add_argument('--expected-revision',type=int,required=True)
     profile_names=profile_update.add_mutually_exclusive_group();profile_names.add_argument('--name');profile_names.add_argument('--reset-name',action='store_true')
@@ -98,7 +214,8 @@ def main(argv=None):
         if command in {'publish','submit'}:p.add_argument('--category',required=True);p.add_argument('--icon',type=Path,required=True);p.add_argument('--format',default='article')
         if command in {'publish','submit'}:p.add_argument('--ai-partners',type=Path,help='真实AI参与记录JSON文件；省略沿用，空数组清空')
         p.add_argument('--listing',choices=['unlisted','profile','public'],help='不展示 / 仅个人主页 / 公开展示；三档均可通过链接访问')
-        if command=='publish':p.add_argument('--cover')
+        if command=='publish':
+            p.add_argument('--cover');p.add_argument('--dependencies',type=Path);p.add_argument('--keep-media-in-package',action='store_true',help='兼容选项：媒体作为网页包内文件，不单独托管')
         if command=='submit':p.add_argument('--link-status',choices=['unchecked','unavailable'],default='unchecked')
     args=ap.parse_args(argv)
     if args.command=='configure':
@@ -119,6 +236,13 @@ def main(argv=None):
     if args.command in {'my-works','my-materials'}:
         route='/v1/me/works' if args.command=='my-works' else '/v1/me/materials'
         print(json.dumps(request(api,route,token),ensure_ascii=False,indent=2));return
+    if args.command in {'my-albums','album','album-save','album-delete'}:
+        route='/v1/me/albums';body=None
+        if args.command=='album':route+='/'+args.album_id
+        elif args.command=='album-save':
+            body=json.loads(args.body.read_text());route+=('/'+args.album_id) if args.album_id else ''
+        elif args.command=='album-delete':route+='/'+args.album_id+'/delete';body={'expected_revision':args.expected_revision,'confirm':True}
+        print(json.dumps(request(api,route,token,body,'POST' if body is not None else 'GET'),ensure_ascii=False,indent=2));return
     if args.command=='me':print(json.dumps(request(api,'/v1/me',token),ensure_ascii=False,indent=2));return
     if args.command in {'profile','partners'}:
         print(json.dumps(request(api,'/v1/me/'+('profile' if args.command=='profile' else 'ai-partners'),token),ensure_ascii=False,indent=2));return
@@ -210,18 +334,7 @@ def main(argv=None):
                     if 'file://' in content:raise Error('HTML含本机file://链接')
                     if not re.search(r'<head(?:\s|>)',content,re.I):content=re.sub(r'(<html\b[^>]*>)',r'\1<head></head>',content,count=1,flags=re.I) if re.search(r'<html\b',content,re.I) else '<!doctype html><html><head></head><body>'+content+'</body></html>'
                     payload[name]=content.encode()
-            for name,data in list(payload.items()):
-                if not name.lower().endswith(('.html','.htm','.css')):continue
-                def extract(match):
-                    mime=match.group(1).lower();ext={'image/jpeg':'.jpg','image/png':'.png','image/webp':'.webp','image/gif':'.gif','image/svg+xml':'.svg','image/avif':'.avif'}.get(mime)
-                    if not ext:return match.group(0)
-                    try:raw=base64.b64decode(re.sub(r'\s','',match.group(2)),validate=True)
-                    except ValueError:raise Error('内嵌图片base64无效')
-                    dest='assets/embedded-'+hashlib.sha256(raw).hexdigest()[:20]+ext
-                    payload[dest]=raw
-                    return posixpath.relpath(dest,posixpath.dirname(name) or '.')
-                content=re.sub(r'data:(image/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=\r\n]+)',extract,data.decode('utf8'))
-                payload[name]=content.encode()
+            payload=extract_embedded(payload)
             body.update({'category_id':args.category,'format':args.format,'icon':icon_name,'entry':entry.relative_to(base).as_posix()})
             if args.cover:
                 if args.cover in payload:body['cover']=args.cover
@@ -234,11 +347,24 @@ def main(argv=None):
                     if cover_name in payload and payload[cover_name]!=cover_bytes:raise Error('封面文件名冲突')
                     payload[cover_name]=cover_bytes;body['cover']=cover_name
         else:
-            if source.suffix.lower() not in MEDIA|{'.txt','.json'}:raise Error('不支持的独立素材类型')
-            payload={source.name:source.read_bytes()}
-        body['files']=[{'path':name,'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()} for name,data in sorted(payload.items())]
+            if source.is_dir():
+                files=[p for p in sorted(source.rglob('*')) if p.is_file() and not p.is_symlink() and p.suffix.lower() in MEDIA|{'.txt','.json'} and not any(x.startswith('.') or x in EXCLUDE for x in p.relative_to(source).parts)]
+                if not files:raise Error('素材文件夹中没有支持的文件')
+                payload={p.relative_to(source).as_posix():p.read_bytes() for p in files if p.resolve()!=args.credential.resolve()}
+            else:
+                if source.suffix.lower() not in MEDIA|{'.txt','.json'}:raise Error('不支持的独立素材类型')
+                payload={source.name:source.read_bytes()}
         if args.work_id:body.update({'work_id':args.work_id,'expected_version':args.expected_version})
         elif previous.get('published') and getattr(args,'update',False):body.update({'work_id':previous['work']['id'],'expected_version':previous['work']['version']})
+        if args.command=='publish':
+            supplied_refs=json.loads(args.dependencies.read_text()) if args.dependencies else []
+            if not isinstance(supplied_refs,list) or any(not isinstance(r,dict) or any(not isinstance(r.get(k),str) or not r[k] for k in ['work_id','version','path']) for r in supplied_refs):raise Error('dependencies需要包含work_id、version和path的资源引用数组')
+            if any(len(b)>2*1024**2 for n,b in payload.items() if Path(n).suffix.lower() in {'.html','.htm'}):raise Error('提取媒体后的HTML仍超过2MiB，请先精简页面')
+            refs=[]
+            if not args.keep_media_in_package:payload,refs=externalize_resources(api,token,payload,{body['icon'],body.get('cover')},body.get('work_id'))
+            refs.extend(supplied_refs)
+            body['dependencies']=list({(r['work_id'],r['version'],r['path']):r for r in refs}.values())
+        body['files']=[{'path':name,'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()} for name,data in sorted(payload.items())]
         fingerprint=hashlib.sha256(json.dumps(body,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
         idem=previous.get('idempotency_key') if previous.get('fingerprint')==fingerprint and not previous.get('published') else uuid.uuid4().hex
         session=request(api,'/v1/uploads',token,body,'POST',idem=idem)

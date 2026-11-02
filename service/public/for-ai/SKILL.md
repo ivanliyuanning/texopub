@@ -1,6 +1,6 @@
 ---
 name: commonplace-remote-publish
-description: "用户要求用 TexoPub 发布做好的静态网页、上传文件或管理已发布内容时使用；支持原网址更新、外站收录、作品发现、创作者资料与 AI 伙伴管理。"
+description: "用户要求用 TexoPub 发布做好的静态网页、上传文件或管理已发布内容时使用；支持原网址更新、外站收录、网页专辑、音视频依赖托管、作品发现、创作者资料与 AI 伙伴管理。"
 ---
 
 English instructions: https://texopub.com/for-ai/en/SKILL.md · English interface: https://texopub.com/?lang=en
@@ -95,6 +95,20 @@ TexoPub 是展示人类与 AI 共创作品的内容社区，核心是搜索、�
 本地客户端：本人在 https://texopub.com/login/ 手机号验证码登录；已验证绑定的备用邮箱可登录同一空间。进入“AI连接”并展开“管理本地 Agent 密钥”，创建、下载只读或发布凭证。默认六个日历月，可自定义1–3650天；只展示一次，可撤销、调整期限。验证步骤和公开主页授权由本人在网页完成，AI不索取验证码或登录Cookie。
 
 凭证保存在发布目录外，建议0600，用 `--credential /private/path/credential.json` 或 `COMMONPLACE_CREDENTIAL` 指定；`configure SOURCE_JSON` 可保存为默认凭证，不覆盖已有文件。先 `me` 核对所属发布者；只读凭证不能写入。旧邀请凭证兼容，但账号关联需本人在“账号与安全”证明归属，不能凭同名认领作品。不要索取或上传Cloudflare密钥。
+
+## 专辑与网页依赖资源（2.4.0）
+
+专辑只组织本人网页（包括已收录的网站），不把图片、视频或音频作为专辑成员。音视频播放器和交互留在网页内。专辑展示范围与成员网页独立：`unlisted`凭链接分享，`profile`进入本人已开启的主页；没有public档，不自动开启主页。分享unlisted不等于登录保护。新专辑未指定范围时按上面的询问规则一次确认；已指定或沿用更新时直接执行。默认unlisted不代替用户选择。
+
+先`list_my_albums` / `my-albums`，再`get_album` / `album ID`；新建用`save_album` / `album-save BODY.json`，更新附album_id。新建传slug/title/expected_revision=0/idempotency_key；更新用当前revision。`work_ids`是完整、有序、去重的本人网页ID数组，最多200份，同一网页可复用在多个专辑；省略保留，[]清空。修改专辑不修改网页URL或listing。归档用save_album(status=hidden)，恢复用published；永久删除用delete_album(confirm=true,expected_revision)或album-delete ID --expected-revision N --confirm，只删除专辑，保留成员网页和素材。409先重读，不覆盖别人的顺序。网页下架/删除后访客仅看到不可用占位。
+
+专辑封面：推荐1600×900（16:9），接受PNG/JPEG/WebP，文件≤5MiB，建议至少800×450，标题/主体留在中央安全区域。用户提供则校验实际格式/大小与裁切，保留原件；未提供由AI制作贴合主题的封面，不另行询问，服务自动生成SVG排版作为兜底。上传为unlisted独立素材后，传`cover_resource:{work_id,version,path}`；null恢复自动封面，省略沿用。封面不能代替网页专属图标。主页多个专辑位于作者资料下、网页列表上，宽屏3列/平板2列/手机1列。
+
+发布网页时检查HTML/CSS/JS/JSON的图片、video/audio/source、poster、srcset及base64内嵌媒体。先按SHA256/字节数复用本人素材，否则单独上传原字节资源，再以服务实际返回的精确版本URL替换网页引用，网页提交`dependencies:[{work_id,version,path}]`。这属于已授权网页的依赖处理，统一unlisted，不逐份询问，不额外扩大素材公开范围。外部原站URL可保留，不绕过平台限制抓取；不能收录无关个人原片。仅改URL不会减少播放媒体的总字节，改善的是HTML体积、按需加载与复用缓存；不擅自有损转码或宣称大文件续传已实现。
+
+本地CLI默认自动提取/上传/替换静态引用；动态拼接地址由AI检查适配，不保证任意脚本自动识别。无法安全拆分时保留完整包，并用`--keep-media-in-package`，仍遵守限额。云端MCP不自动编辑附件HTML：AI先上传素材（单份upload_asset，资源组inspect_files→prepare_upload(kind=asset,listing=unlisted)→upload_file→commit_upload），独立核对成功URL/字节后改写完整网页并声明dependencies；未成功不能发布悬空引用。单资源25MiB、资源组250文件/100MiB、HTML2MiB，超限保留质量并说明实际限制，不假装压小HTML就能上传任意视频。
+
+引用精确不可变版本；更新网页时保留仍使用的依赖，明确提供完整新清单（[]清空）。get_work/show返回dependency_files，my-materials返回sha256与引用。网页历史版本和有效草稿、专辑封面仍在引用时，素材归档/永久删除返回409；不得为清素材擅删正式网页。删除专辑不自动删除成员或资源。验收检查匿名播放/拖动/Range、原字节哈希、网页与专辑各自listing、主页/发现不泄露unlisted，并用少量测试后永久清理全部历史和独占资源。
 
 ## 当前边界
 

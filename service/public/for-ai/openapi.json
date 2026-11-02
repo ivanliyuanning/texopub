@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "TexoPub.ai 个人空间与发布 API",
-    "version": "2.3.0",
-    "description": "网页和独立素材统一listing三档展示；所有已发布链接无需登录。管理、上传、修改和删除需要所属账号授权。新建采用空间默认，更新省略listing保留原值。旧visibility=private仅兼容为unlisted。"
+    "version": "2.4.0",
+    "description": "网页和独立素材统一listing三档展示；所有已发布链接无需登录。管理、上传、修改和删除需要所属账号授权。新建采用空间默认，更新省略listing保留原值。旧visibility=private仅兼容为unlisted。 专辑仅收本人网页，unlisted/profile两档独立控制主页展示。资源组支持原字节图片、视频、音频；网页记录不可变版本依赖，仍被引用的素材不可归档或删除。"
   },
   "servers": [
     {
@@ -21,6 +21,100 @@
         "type": "http",
         "scheme": "bearer",
         "description": "用户在个人空间创建的只读或发布密钥，含有效期，可独立撤销；兼容旧邀请凭证。不得使用短信验证码或云平台密钥。"
+      }
+    },
+    "schemas": {
+      "ResourceReference": {
+        "type": "object",
+        "required": [
+          "work_id",
+          "version",
+          "path"
+        ],
+        "properties": {
+          "work_id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "AlbumSave": {
+        "type": "object",
+        "required": [
+          "expected_revision"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "listing": {
+            "enum": [
+              "unlisted",
+              "profile"
+            ]
+          },
+          "status": {
+            "enum": [
+              "published",
+              "hidden"
+            ]
+          },
+          "work_ids": {
+            "type": "array",
+            "maxItems": 200,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "cover_resource": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": [
+                  "work_id",
+                  "version",
+                  "path"
+                ],
+                "properties": {
+                  "work_id": {
+                    "type": "string"
+                  },
+                  "version": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "description": "创建需要slug/title/expected_revision=0/idempotency_key；更新用当前revision。work_ids完整有序替换，省略保留。cover_resource是本人已发布PNG/JPEG/WebP≤5MiB，建议1600×900。"
       }
     }
   },
@@ -296,6 +390,30 @@
                       "additionalProperties": false
                     },
                     "description": "Actual participants, self reported; omitted update preserves credits, [] clears them"
+                  },
+                  "dependencies": {
+                    "type": "array",
+                    "maxItems": 250,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "work_id",
+                        "version",
+                        "path"
+                      ],
+                      "properties": {
+                        "work_id": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "string"
+                        },
+                        "path": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "description": "仅网页使用。引用本人已发布资源组中ready的精确版本文件；更新省略沿用，[]清空。"
                   }
                 },
                 "allOf": [
@@ -1005,6 +1123,187 @@
         ],
         "description": "优先使用统一listing接口；旧private只映射unlisted，所有已发布文件均无需登录。",
         "deprecated": true
+      }
+    },
+    "/v1/me/albums": {
+      "get": {
+        "summary": "本人专辑列表",
+        "responses": {
+          "200": {
+            "description": "JSON"
+          },
+          "409": {
+            "description": "revision冲突、引用仍在使用或资源不可用"
+          }
+        }
+      },
+      "post": {
+        "summary": "创建专辑",
+        "responses": {
+          "200": {
+            "description": "JSON"
+          },
+          "409": {
+            "description": "revision冲突、引用仍在使用或资源不可用"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlbumSave"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/albums/{id}": {
+      "get": {
+        "summary": "本人专辑与revision",
+        "responses": {
+          "200": {
+            "description": "JSON"
+          },
+          "409": {
+            "description": "revision冲突、引用仍在使用或资源不可用"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "summary": "修改专辑、展示或完整成员顺序",
+        "responses": {
+          "200": {
+            "description": "JSON"
+          },
+          "409": {
+            "description": "revision冲突、引用仍在使用或资源不可用"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlbumSave"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/albums/{id}/delete": {
+      "post": {
+        "summary": "永久删除专辑，保留成员和素材",
+        "responses": {
+          "200": {
+            "description": "JSON"
+          },
+          "409": {
+            "description": "revision冲突、引用仍在使用或资源不可用"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "expected_revision",
+                  "confirm"
+                ],
+                "properties": {
+                  "expected_revision": {
+                    "type": "integer"
+                  },
+                  "confirm": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/albums/{id}": {
+      "get": {
+        "summary": "匿名读取已发布专辑；不可用成员不透露旧资料",
+        "responses": {
+          "200": {
+            "description": "JSON"
+          },
+          "409": {
+            "description": "revision冲突、引用仍在使用或资源不可用"
+          }
+        },
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/albums/{id}/cover.svg": {
+      "get": {
+        "summary": "生成1600×900封面，或跳转到自带封面",
+        "responses": {
+          "200": {
+            "description": "JSON"
+          },
+          "409": {
+            "description": "revision冲突、引用仍在使用或资源不可用"
+          }
+        },
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
       }
     }
   },

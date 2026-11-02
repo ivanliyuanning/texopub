@@ -4,8 +4,8 @@ const {readFileSync}=require('node:fs');
 const {JSDOM}=require('../.tools/node_modules/jsdom');
 const template=readFileSync(require('node:path').join(__dirname,'../templates/work-viewer.html'),'utf8');
 function viewer(entry='index.html'){
- const values={TITLE:'Original title',ICON:'https://content.example/icon.svg',SOURCE:'/_texopub/content/v/version/index.html',SANDBOX:'allow-scripts allow-forms allow-popups allow-modals allow-downloads',CONFIG:JSON.stringify({rawRoot:'/_texopub/content/v/version/',publicRoot:'/p/publisher/work/',entry})};
- const html=template.replace(/\{\{(TITLE|ICON|SOURCE|SANDBOX|CONFIG)\}\}/g,(_,key)=>values[key]);
+ const values={ALBUM_LINK:'',TITLE:'Original title',ICON:'https://content.example/icon.svg',SOURCE:'/_texopub/content/v/version/index.html',SANDBOX:'allow-scripts allow-forms allow-popups allow-modals allow-downloads',CONFIG:JSON.stringify({rawRoot:'/_texopub/content/v/version/',publicRoot:'/p/publisher/work/',entry})};
+ const html=template.replace(/\{\{(TITLE|ICON|SOURCE|SANDBOX|CONFIG|ALBUM_LINK)\}\}/g,(_,key)=>values[key]);
  const dom=new JSDOM(html,{runScripts:'dangerously',url:'https://content.example/p/publisher/work/'});
  const frame=dom.window.document.querySelector('iframe');
  const send=(data,source=frame.contentWindow)=>dom.window.dispatchEvent(new dom.window.MessageEvent('message',{source,data:{type:'texopub:work-state',...data}}));

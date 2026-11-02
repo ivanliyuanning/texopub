@@ -1,6 +1,6 @@
 {
   "name": "texopub",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "description": "Publish finished static websites and files, update existing content at the same URL, and manage TexoPub works, profiles and AI partners.",
   "author": {
     "name": "TexoPub",

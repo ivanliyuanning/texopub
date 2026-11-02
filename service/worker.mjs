@@ -1,3 +1,4 @@
+import {resourceReferences,listAlbums,getAlbum,saveAlbum,deleteAlbum,albumCover} from './albums.mjs';
 import {CommunityError,getProfile,updateProfile,upsertPartner,prepareContributors,enrichWorks,publicProfile,avatarSvg} from './community.mjs';
 import {oauthRoutes} from './mcp-oauth.mjs';
 import {mcpRoute} from './mcp.mjs';
@@ -16,6 +17,7 @@ const MIME = {html:'text/html; charset=utf-8',htm:'text/html; charset=utf-8',css
 const CORS = {'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Authorization,Content-Type,Idempotency-Key,MCP-Protocol-Version,Mcp-Session-Id,Last-Event-ID','Access-Control-Allow-Methods':'GET,HEAD,POST,PUT,OPTIONS','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
 class Failure extends Error {constructor(status,message){super(message);this.status=status;}}
 function fail(status,message){throw new Failure(status,message);}
+const escape=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function response(data,status=200){return Response.json(data,{status,headers:{...CORS,'Cache-Control':'no-store'}});}
 function now(){return Math.floor(Date.now()/1000);}
 function id(){return crypto.randomUUID().replaceAll('-','');}
@@ -29,7 +31,7 @@ function encoded(value){return value.split('/').map(encodeURIComponent).join('/'
 function origin(env){if(!env.CONTENT_ORIGIN)fail(503,'内容服务尚未配置');return env.CONTENT_ORIGIN.replace(/\/$/,'');}
 function versionBase(env,version){return origin(env)+'/v/'+version+'/';}
 function category(value){for(const g of taxonomy.groups)for(const c of g.children)if(value===g.id+'/'+c.id)return [g.name,c.name];fail(400,'必须选择有效的二级分类，请读取 /v1/categories');}
-function publicWork(env,w){const m=JSON.parse(w.metadata);delete m.visibility;const url=m.source==='external'?m.external_url:m.legacy_id?(env.APP_ORIGIN||'https://texopub.com')+'/p/'+m.legacy_id+'/':origin(env)+'/p/'+(w.public_slug||w.publisher_id+'/'+w.slug)+'/';return {...m,kind:w.kind,listing:contentListing(w),revision:w.revision||0,...(w.deleted_at?{deleting:!w.delete_complete,deleted:!!w.delete_complete}:{}),source:m.source||'hosted',id:w.id,slug:w.slug,version:w.current_version,publisher_id:w.publisher_id,url,path:url,published:new Date(w.created*1000).toISOString().slice(0,10),updated:new Date(w.updated*1000).toISOString().slice(0,10)};}
+function publicWork(env,w){const m=JSON.parse(w.metadata);delete m.visibility;const url=m.source==='external'?m.external_url:m.legacy_id?(env.APP_ORIGIN||'https://texopub.com')+'/p/'+m.legacy_id+'/':origin(env)+'/p/'+(w.public_slug||w.publisher_id+'/'+w.slug)+'/';return {...m,...(m.dependencies?{dependency_files:m.dependencies.map(d=>({...d,url:versionBase(env,d.version)+encoded(d.path)}))}:{}),kind:w.kind,listing:contentListing(w),revision:w.revision||0,...(w.deleted_at?{deleting:!w.delete_complete,deleted:!!w.delete_complete}:{}),source:m.source||'hosted',id:w.id,slug:w.slug,version:w.current_version,publisher_id:w.publisher_id,url,path:url,published:new Date(w.created*1000).toISOString().slice(0,10),updated:new Date(w.updated*1000).toISOString().slice(0,10)};}
 // Legacy visibility is accepted only as a listing alias; it never gates reads.
 function contentListing(w){return w.kind==='asset'&&JSON.parse(w.metadata).visibility==='private'?'unlisted':w.listing||'public';}
 function requestedListing(body){
@@ -61,8 +63,7 @@ async function createUpload(request,env,p){
  const seen=new Set();let total=0;
  for(const f of files){path(f.path);if(seen.has(f.path))fail(400,'重复文件路径');seen.add(f.path);if(!Number.isInteger(f.bytes)||f.bytes<0||f.bytes>MAX_FILE)fail(413,'每个文件不超过25MiB');if(!/^[a-f0-9]{64}$/.test(f.sha256))fail(400,'需要SHA256文件校验值');total+=f.bytes;}
  if(total>MAX_TOTAL)fail(413,'每次上传不超过100MiB');
- if(kind==='asset'&&files.length!==1)fail(400,'每次独立素材上传只包含一个文件');
- if(kind==='asset'&&/^(html?|css|m?js|wasm)$/.test(files[0].path.split('.').pop().toLowerCase()))fail(400,'独立素材不能作为可执行网页发布；HTML需要作品分类和图标');
+  if(kind==='asset'&&files.some(f=>/^(html?|css|m?js|wasm)$/.test(f.path.split('.').pop().toLowerCase())))fail(400,'独立素材不能作为可执行网页发布；HTML需要作品分类和图标');
  const reserved=total+files.filter(f=>/\.html?$/i.test(f.path)).length*4096;
  if(files.some(f=>/\.html?$/i.test(f.path)&&f.bytes>2*1024*1024))fail(413,'HTML正文不超过2MiB');
  let metadata={source,title,summary,tags,format:body.format||'article',category_id:body.category_id||'',license:text(body.license||'未声明开放许可','分享许可',120),author:p.name};
@@ -80,12 +81,13 @@ async function createUpload(request,env,p){
   if(files.find(f=>f.path===icon).bytes>1024*1024)fail(413,'图标不超过1MiB');metadata.icon_path=icon;
   if(body.cover){path(body.cover);if(!seen.has(body.cover)||!MIME[body.cover.split('.').pop().toLowerCase()].startsWith('image/'))fail(400,'封面必须是包内图片');metadata.cover_path=body.cover;}
  }
- if(kind==='asset')metadata.entry=files[0].path;
+ if(kind==='asset'){metadata.entry=body.entry||files[0].path;if(!seen.has(metadata.entry))fail(400,'素材入口必须在文件清单中');if(body.dependencies!==undefined)fail(400,'素材不能再声明网页依赖');}
  let work=await first(env,'SELECT * FROM works WHERE publisher_id=? AND slug=?',p.id,slug);
  if(body.work_id&&(!work||work.id!==body.work_id))fail(403,'只能更新自己的作品');
  if(work){if(!body.work_id)fail(409,'同slug已存在；更新时提供work_id和expected_version');if(work.deleted_at||work.kind!==kind||work.status==='hidden'||(JSON.parse(work.metadata).source||'hosted')!==source)fail(403,'作品类型不同或已下架；不能把托管作品改成外部收录');if((body.expected_version||null)!==work.current_version)fail(409,'作品版本已变化，请读取最新版本后更新');}
  // Legacy aliases are trusted migration metadata and cannot be supplied by clients.
  if(work){const previous=JSON.parse(work.metadata);for(const k of ['legacy_id','legacy_initial_version'])if(previous[k])metadata[k]=previous[k];}
+ if(kind==='work')metadata.dependencies=resourceReferences(body.dependencies===undefined&&work?JSON.parse(work.metadata).dependencies:body.dependencies);
  const contributors=kind==='work'?await prepareContributors(env,p,body.ai_partners,work?JSON.parse(work.metadata):null):{items:[],statements:[]};
  if(kind==='work'){metadata.ai_partners=contributors.items;metadata.cover_strategy=metadata.cover_path?'uploaded':'typographic-v1';}
  const selectedListing=listing(requestedListing(body)??(work?contentListing(work):null)??p.default_listing??(await first(env,'SELECT default_listing FROM publishers WHERE id=?',p.id)).default_listing);
@@ -101,6 +103,7 @@ async function createUpload(request,env,p){
   if(!work)commands.push(stmt(env,'INSERT INTO works(id,publisher_id,slug,kind,created,updated,public_slug,listing) VALUES(?,?,?,?,?,?,?,?)',workId,p.id,slug,kind,created,created,publicSlug,selectedListing));
  commands.push(stmt(env,'INSERT INTO versions(id,publisher_id,work_id,idem,request_hash,base_version,base_revision,metadata,total_bytes,created,expires) VALUES(?,?,?,?,?,?,?,?,?,?,?)',version,p.id,workId,idem,requestHash,work?.current_version||null,work?.revision||0,JSON.stringify(metadata),reserved,created,created+86400));
  commands.push(stmt(env,"INSERT INTO files(version_id,path,mime,bytes,sha256) SELECT ?,json_extract(value,'$.path'),json_extract(value,'$.mime'),json_extract(value,'$.bytes'),json_extract(value,'$.sha256') FROM json_each(?)",version,JSON.stringify(files.map(f=>({...f,mime:MIME[f.path.split('.').pop().toLowerCase()]})))));
+ if(kind==='work'&&metadata.dependencies.length)commands.push(stmt(env,"INSERT INTO work_dependencies(version_id,asset_id,asset_version,path) SELECT ?,json_extract(value,'$.work_id'),json_extract(value,'$.version'),json_extract(value,'$.path') FROM json_each(?)",version,JSON.stringify(metadata.dependencies)));
  try{await env.DB.batch(commands);stored=true;break;}catch(e){if(publicSlug&&/works\.public_slug|works_public_slug_unique/.test(e.message))continue;if(/work_deleted/.test(e.message))fail(409,'内容已删除，无法上传');if(/quota_exceeded/.test(e.message))fail(413,'已达到发布者存储额度（包含历史版本和未完成上传）');if(/rate_limited/.test(e.message))fail(429,'已达到每日上传次数');if(/UNIQUE/.test(e.message)){const retry=await first(env,'SELECT * FROM versions WHERE publisher_id=? AND idem=?',p.id,idem);if(retry&&retry.request_hash===requestHash)return response(sessionResult(env,retry,await rows(env,'SELECT * FROM files WHERE version_id=?',retry.id)));fail(409,'并发创建冲突，请重试');}throw e;}
  }
  if(!stored)fail(503,'短地址暂时无法分配，请重试同一上传请求');
@@ -178,14 +181,24 @@ async function content(request,env,url){
  }
  }
  path(relative);
- const f=await first(env,"SELECT f.*,v.metadata AS version_metadata,w.publisher_id,w.slug,w.kind,w.metadata AS work_metadata FROM files f JOIN versions v ON v.id=f.version_id JOIN works w ON w.id=v.work_id WHERE f.version_id=? AND f.path=? AND f.ready=1 AND v.state='published' AND w.status='published'",version,relative);
+ const f=await first(env,"SELECT f.*,v.metadata AS version_metadata,w.id AS work_id,w.publisher_id,w.slug,w.kind,w.metadata AS work_metadata FROM files f JOIN versions v ON v.id=f.version_id JOIN works w ON w.id=v.work_id WHERE f.version_id=? AND f.path=? AND f.ready=1 AND v.state='published' AND w.status='published'",version,relative);
  if(!f)fail(404,'文件尚未发布或已下架');
  let range;
  const isHtml=f.mime.startsWith('text/html');
  // HTML is a streamed platform representation, so byte ranges apply only to assets.
- const rangeHeader=isHtml?null:request.headers.get('Range');if(rangeHeader){const m=rangeHeader.match(/^bytes=(\d+)-(\d*)$/);if(!m)fail(416,'不支持此范围请求');const offset=Number(m[1]),end=m[2]?Number(m[2]):f.stored_bytes-1;if(offset>=f.stored_bytes||end<offset)fail(416,'范围无效');range={offset,length:Math.min(end,f.stored_bytes-1)-offset+1};}
+ const rangeHeader=isHtml?null:request.headers.get('Range');
+ if(rangeHeader){
+  const m=rangeHeader.match(/^bytes=(\d*)-(\d*)$/),total=f.stored_bytes;
+  const invalid=()=>new Response(null,{status:416,headers:{...CORS,'Content-Range':`bytes */${total}`,'Accept-Ranges':'bytes'}});
+  if(!m||(!m[1]&&!m[2])||!total)return invalid();
+  let offset,end;
+  if(m[1]){offset=Number(m[1]);end=m[2]?Math.min(Number(m[2]),total-1):total-1;}
+  else{const suffix=Number(m[2]);if(!Number.isSafeInteger(suffix)||suffix<=0)return invalid();offset=Math.max(0,total-suffix);end=total-1;}
+  if(!Number.isSafeInteger(offset)||!Number.isSafeInteger(end)||offset>=total||end<offset)return invalid();
+  range={offset,length:end-offset+1};
+ }
  const object=await env.FILES.get(f.object_key,range?{range}:undefined);if(!object)fail(503,'素材暂时不可用');
- const headers=new Headers({...CORS,'Content-Type':f.mime,'Cache-Control':immutable?'public,max-age=300':'no-cache','Content-Security-Policy':"sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads; frame-ancestors *; base-uri 'self'",'X-Frame-Options':'','Accept-Ranges':'bytes','ETag':object.httpEtag});
+ const headers=new Headers({...CORS,'Content-Type':f.mime,'Cache-Control':immutable?'public,max-age=300':'no-cache','Content-Security-Policy':"sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads; frame-ancestors *; base-uri 'self'",'X-Frame-Options':'','Accept-Ranges':'bytes','Access-Control-Expose-Headers':'Content-Range,Content-Length,Accept-Ranges,ETag','ETag':object.httpEtag});
  headers.delete('X-Frame-Options');headers.set('Content-Length',String(range?range.length:f.stored_bytes));if(range)headers.set('Content-Range',`bytes ${range.offset}-${range.offset+range.length-1}/${f.stored_bytes}`);
  if(isHtml){
   // The platform owns a separate viewer document; work scripts remain sandboxed
@@ -198,8 +211,10 @@ async function content(request,env,url){
    headers.set('Content-Security-Policy',"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; frame-src 'self' "+origin(env)+"; img-src https: data:; frame-ancestors *; base-uri 'none'");
    const publicRoot=shortAlias?'/p/'+shortAlias+'/':legacyAlias?'/p/'+metadata.legacy_id+'/':immutable?'/v/'+version+'/':'/p/'+f.publisher_id+'/'+f.slug+'/';
    const escape=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-   const values={TITLE:escape(metadata.title),ICON:escape(metadata.icon),SOURCE:escape((legacyAlias&&!trustedLegacy?origin(env):'')+rawRoot+encoded(relative)+url.search),SANDBOX:'allow-scripts allow-forms allow-popups allow-modals allow-downloads'+(trustedLegacy?' allow-same-origin':''),CONFIG:JSON.stringify({publicRoot,rawRoot,entry:metadata.entry}).replaceAll('<','\\u003c')};
-   const html=viewerTemplate.replace(/\{\{(TITLE|ICON|SOURCE|SANDBOX|CONFIG)\}\}/g,(_,key)=>values[key]);
+   const albumId=url.searchParams.get('album');let albumLink='';
+   if(/^[a-f0-9]{32}$/.test(albumId||'')){const a=await first(env,"SELECT a.id,a.title FROM albums a JOIN album_items i ON i.album_id=a.id WHERE a.id=? AND a.status='published' AND i.work_id=?",albumId,f.work_id);if(a)albumLink='<a class="album-return" href="'+escape((env.APP_ORIGIN||'https://texopub.com')+'/albums/'+a.id+'/')+'">← '+escape(a.title)+'</a>';}
+   const values={ALBUM_LINK:albumLink,TITLE:escape(metadata.title),ICON:escape(metadata.icon),SOURCE:escape((legacyAlias&&!trustedLegacy?origin(env):'')+rawRoot+encoded(relative)+url.search),SANDBOX:'allow-scripts allow-forms allow-popups allow-modals allow-downloads'+(trustedLegacy?' allow-same-origin':''),CONFIG:JSON.stringify({publicRoot,rawRoot,entry:metadata.entry}).replaceAll('<','\\u003c')};
+   const html=viewerTemplate.replace(/\{\{(TITLE|ICON|SOURCE|SANDBOX|CONFIG|ALBUM_LINK)\}\}/g,(_,key)=>values[key]);
    return new Response(request.method==='HEAD'?null:html,{headers});
   }
   const page=new Response(request.method==='HEAD'?null:object.body,{headers});
@@ -213,6 +228,15 @@ async function content(request,env,url){
 async function route(request,env,authenticatedPublisher=null){
  const url=new URL(request.url);url.pathname=url.pathname.replace(/^\/api(?=\/)/,'');if(request.method==='OPTIONS')return new Response(null,{status:204,headers:CORS});
  if(env.ROLE==='content')return content(request,env,url);
+ const albumPage=url.pathname.match(/^\/albums\/([a-f0-9]{32})\/?$/);
+ if(albumPage&&['GET','HEAD'].includes(request.method)){
+  const album=await getAlbum(env,albumPage[1],publicWork);
+  const shell=await fetch('https://co-created-library-lyn.pages.dev/albums/',{signal:AbortSignal.timeout(10000)});
+  if(!shell.ok)fail(503,'专辑页面暂时不可用，请稍后重试');
+  const html=await shell.text();if(html.length>65536)fail(503,'专辑页面暂时不可用');
+  const meta='<meta name="description" content="'+escape(album.summary)+'"><meta name="robots" content="'+(album.listing==='unlisted'?'noindex,nofollow':'index,follow')+'"><link rel="canonical" href="'+escape(album.url)+'"><meta property="og:type" content="website"><meta property="og:title" content="'+escape(album.title)+'"><meta property="og:description" content="'+escape(album.summary)+'"><meta property="og:url" content="'+escape(album.url)+'"><meta property="og:image" content="'+escape(album.cover)+'"><meta name="twitter:card" content="summary_large_image">';
+  return new Response(request.method==='HEAD'?null:html.replace(/<title>[^<]*<\/title>/,'<title>'+escape(album.title)+' · TexoPub</title>').replace('</head>',meta+'</head>'),{headers:{'Content-Type':'text/html;charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'strict-origin-when-cross-origin','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"}});
+ }
  if(url.pathname==='/mcp')return mcpRoute(request,env,(r,e,p)=>safeRoute(r,e,p));
  const oauth=await oauthRoutes(request,env,url);if(oauth)return oauth;
  const accountResponse=await accountRoutes(request,env,url);if(accountResponse)return accountResponse;
@@ -222,7 +246,7 @@ async function route(request,env,authenticatedPublisher=null){
  if(url.pathname.match(/^\/v1\/profiles\/[a-f0-9]{32}$/)&&request.method==='GET'){
   const pid=url.pathname.split('/').pop();const profile=await publicProfile(env,pid,(await rows(env,"SELECT * FROM works WHERE publisher_id=? AND status='published' AND kind='work' AND listing IN ('profile','public') ORDER BY updated DESC",pid)).map(w=>publicWork(env,w)));
   const files=await rows(env,"SELECT f.*,w.id AS work_id,w.metadata,w.listing FROM files f JOIN works w ON w.current_version=f.version_id WHERE w.publisher_id=? AND w.kind='asset' AND w.status='published' AND f.ready=1 AND w.listing IN ('profile','public') AND COALESCE(json_extract(w.metadata,'$.visibility'),'public')!='private' ORDER BY w.updated DESC",pid);
-  return response({...profile,materials:files.map(f=>({id:f.version_id+'/'+f.path,work_id:f.work_id,name:f.path,collection:JSON.parse(f.metadata).title,mime:f.mime,bytes:f.bytes,listing:f.listing,url:versionBase(env,f.version_id)+encoded(f.path)}))});
+  return response({...profile,albums:await listAlbums(env,pid,true),materials:files.map(f=>({id:f.version_id+'/'+f.path,work_id:f.work_id,name:f.path,collection:JSON.parse(f.metadata).title,mime:f.mime,bytes:f.bytes,listing:f.listing,url:versionBase(env,f.version_id)+encoded(f.path)}))});
  }
  if(url.pathname==='/v1/catalog'&&request.method==='GET'){
   const list=await rows(env,"SELECT * FROM works WHERE status='published' AND kind='work' AND listing='public' ORDER BY updated DESC LIMIT 1000"),migrated=new Set((await rows(env,"SELECT json_extract(metadata,'$.legacy_id') AS legacy_id FROM works WHERE json_extract(metadata,'$.legacy_id') IS NOT NULL")).map(w=>w.legacy_id));return response({schema_version:5,title:'TexoPub.ai',items:[...legacy.works.filter(w=>!migrated.has(w.id)),...await enrichWorks(env,list.map(w=>publicWork(env,w)))].sort((a,b)=>b.updated.localeCompare(a.updated))});
@@ -231,6 +255,11 @@ async function route(request,env,authenticatedPublisher=null){
   const list=await rows(env,"SELECT f.*,w.publisher_id,w.metadata,w.id AS work_id FROM files f JOIN versions v ON v.id=f.version_id JOIN works w ON w.current_version=v.id WHERE w.status='published' AND json_extract(w.metadata,'$.legacy_id') IS NULL AND COALESCE(json_extract(w.metadata,'$.source'),'hosted')!='external' AND w.listing='public' AND COALESCE(json_extract(w.metadata,'$.visibility'),'public')!='private' AND f.mime NOT LIKE 'text/html%' AND f.mime NOT LIKE '%javascript%' AND f.mime NOT LIKE 'text/css%' LIMIT 2000");
   const legacyState=await first(env,"SELECT status,listing FROM works WHERE json_extract(metadata,'$.legacy_id')='suzhou-museum'");
   return response({items:[...(legacyState&&(legacyState.status!=='published'||legacyState.listing!=='public')?[]:legacy.assets),...list.map(f=>({id:f.version_id+'/'+f.path,name:f.path.split('/').pop(),title:f.path.split('/').pop(),collection:JSON.parse(f.metadata).title,mime:f.mime,bytes:f.bytes,url:versionBase(env,f.version_id)+encoded(f.path),publisher_id:f.publisher_id}))]});
+ }
+ const publicAlbum=url.pathname.match(/^\/v1\/albums\/([a-f0-9]{32})(?:\/(cover\.svg))?$/);
+ if(publicAlbum&&['GET','HEAD'].includes(request.method)){
+  if(publicAlbum[2]){const cover=await albumCover(env,publicAlbum[1]);if(cover.url)return Response.redirect(cover.url,302);return new Response(request.method==='HEAD'?null:cover.svg,{headers:{...CORS,'Content-Type':'image/svg+xml','Cache-Control':'no-cache','Content-Security-Policy':"default-src 'none'; sandbox"}});}
+  return response(await getAlbum(env,publicAlbum[1],publicWork));
  }
  const publicId=url.pathname.match(/^\/v1\/works\/([a-f0-9]{32})$/);
  if(publicId&&request.method==='GET'){const w=await first(env,"SELECT * FROM works WHERE id=? AND status='published'",publicId[1]);if(!w)fail(404,'作品不存在');return response((await enrichWorks(env,[publicWork(env,w)]))[0]);}
@@ -253,6 +282,10 @@ async function route(request,env,authenticatedPublisher=null){
   return content(request,env,target);
  }
  const p=authenticatedPublisher||await auth(request,env);
+ if(url.pathname==='/v1/me/albums'&&request.method==='GET')return response({items:await listAlbums(env,p.id)});
+ if(url.pathname==='/v1/me/albums'&&request.method==='POST')return response(await saveAlbum(env,p,await json(request),null,publicWork),201);
+ const ownAlbum=url.pathname.match(/^\/v1\/me\/albums\/([a-f0-9]{32})(?:\/(delete))?$/);
+ if(ownAlbum){if(ownAlbum[2]&&request.method==='POST')return response(await deleteAlbum(env,p,ownAlbum[1],await json(request)));if(!ownAlbum[2]&&request.method==='GET')return response(await getAlbum(env,ownAlbum[1],publicWork,p));if(!ownAlbum[2]&&request.method==='POST')return response(await saveAlbum(env,p,await json(request),ownAlbum[1],publicWork));}
  if(url.pathname==='/v1/me/profile'&&request.method==='GET')return response(await getProfile(env,p));
  if(url.pathname==='/v1/me/profile'&&request.method==='POST')return response(await updateProfile(env,p,await json(request)));
  if(url.pathname==='/v1/me/ai-partners'&&request.method==='GET')return response({items:(await getProfile(env,p)).ai_partners});
@@ -288,7 +321,9 @@ async function route(request,env,authenticatedPublisher=null){
  if(archive&&request.method==='POST'){const b=await json(request),w=await first(env,'SELECT * FROM works WHERE id=? AND publisher_id=?',archive[1],p.id);if(!w||w.deleted_at)fail(404,'内容不存在或不属于当前空间');if(!b.expected_version||b.expected_version!==w.current_version)fail(409,'内容已变化，请刷新后再归档');const changed=await stmt(env,"UPDATE works SET status='hidden',updated=? WHERE id=? AND publisher_id=? AND current_version=?",now(),w.id,p.id,b.expected_version).run();if(!changed.meta.changes)fail(409,'内容已变化，请刷新后再归档');return response({archived:true,work_id:w.id});}
  if(url.pathname==='/v1/me/materials'&&request.method==='GET'){
   const files=await rows(env,"SELECT f.*,w.kind,w.metadata,w.listing,w.id AS work_id FROM files f JOIN versions v ON v.id=f.version_id JOIN works w ON w.current_version=v.id WHERE w.publisher_id=? AND w.status='published' AND COALESCE(json_extract(w.metadata,'$.source'),'hosted')!='external' AND f.mime NOT LIKE 'text/html%' AND f.mime NOT LIKE '%javascript%' AND f.mime NOT LIKE 'text/css%' ORDER BY w.updated DESC,(f.mime LIKE 'image/%') DESC,f.path LIMIT 2000",p.id);
-  return response({items:files.map(f=>({id:f.version_id+'/'+f.path,name:f.path,work_id:f.work_id,collection:JSON.parse(f.metadata).title,kind:f.kind,version:f.version_id,bytes:f.bytes,mime:f.mime,listing:contentListing(f),url:versionBase(env,f.version_id)+encoded(f.path)}))});
+  const refs=await rows(env,"SELECT DISTINCT d.asset_id,d.asset_version,d.path,w.id AS page_id,json_extract(w.metadata,'$.title') AS title FROM work_dependencies d JOIN versions v ON v.id=d.version_id JOIN works w ON w.id=v.work_id WHERE w.publisher_id=? AND w.deleted_at IS NULL AND (v.state='published' OR v.expires>=?) LIMIT 5000",p.id,now());
+  refs.push(...await rows(env,"SELECT cover_asset_id AS asset_id,cover_version AS asset_version,cover_path AS path,id AS page_id,title FROM albums WHERE publisher_id=? AND status!='deleted' AND cover_asset_id IS NOT NULL",p.id));
+  return response({items:files.map(f=>({id:f.version_id+'/'+f.path,name:f.path,work_id:f.work_id,collection:JSON.parse(f.metadata).title,kind:f.kind,version:f.version_id,bytes:f.bytes,mime:f.mime,sha256:f.sha256,references:refs.filter(r=>r.asset_id===f.work_id&&r.asset_version===f.version_id&&r.path===f.path).map(r=>({work_id:r.page_id,title:r.title})),listing:contentListing(f),url:versionBase(env,f.version_id)+encoded(f.path)}))});
  }
  if(url.pathname==='/v1/me/works'&&request.method==='GET')return response({items:await enrichWorks(env,(await rows(env,'SELECT * FROM works WHERE publisher_id=? AND delete_complete=0 ORDER BY updated DESC LIMIT 1000',p.id)).map(w=>({...publicWork(env,w),status:w.status,kind:w.kind})))});
  if(url.pathname==='/v1/me'&&request.method==='GET'){const usage=await first(env,'SELECT COALESCE(SUM(total_bytes),0) AS reserved_bytes FROM versions WHERE publisher_id=?',p.id);return response({publisher_id:p.id,name:p.name,quota_bytes:p.quota_bytes,...usage,default_listing:(await first(env,'SELECT default_listing FROM publishers WHERE id=?',p.id)).default_listing,works:await rows(env,'SELECT id,slug,current_version,status,listing,revision,deleted_at FROM works WHERE publisher_id=? AND delete_complete=0',p.id)});}
@@ -297,5 +332,5 @@ async function route(request,env,authenticatedPublisher=null){
  const finish=url.pathname.match(/^\/v1\/uploads\/([a-f0-9]{32})\/commit$/);if(finish&&request.method==='POST')return commit(env,p,finish[1]);
  fail(404,'接口不存在');
 }
-async function safeRoute(request,env,p=null){try{return await route(request,env,p);}catch(error){if(error instanceof Failure||error instanceof AccountError||error instanceof CommunityError)return response({error:error.message},error.status);return response({error:'服务暂时不可用，请保留上传会话并重试'},503);}}
+async function safeRoute(request,env,p=null){try{return await route(request,env,p);}catch(error){if(/resource_in_use/.test(error.message))return response({error:'素材仍被网页版本或专辑封面引用，请先处理引用；未归档或删除素材'},409);if(/resource_unavailable|album_member_unavailable/.test(error.message))return response({error:'引用的资源或网页不存在、未发布或不属于当前空间'},409);if(error instanceof Failure||error instanceof AccountError||error instanceof CommunityError)return response({error:error.message},error.status);return response({error:'服务暂时不可用，请保留上传会话并重试'},503);}}
 export default {fetch(request,env){return safeRoute(request,env);}};

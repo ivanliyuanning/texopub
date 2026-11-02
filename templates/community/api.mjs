@@ -13,7 +13,7 @@ export async function api(path, body) {
   return data;
 }
 export function destination(value) {
-  const allowed = ['/space/', '/space/works/', '/space/materials/', '/space/settings/', '/space/settings/keys/', '/space/account/', '/publish/', '/api/oauth/authorize', '/api/oauth/connections'];
+  const allowed = ['/space/', '/space/works/', '/space/albums/', '/space/materials/', '/space/settings/', '/space/settings/keys/', '/space/account/', '/publish/', '/api/oauth/authorize', '/api/oauth/connections'];
   try {
     const url = new URL(value || '/space/', location.origin);
     return url.origin === location.origin && allowed.includes(url.pathname) ? url.pathname + url.search : '/space/';

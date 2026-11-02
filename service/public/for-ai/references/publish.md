@@ -21,7 +21,7 @@ python3 scripts/commonplace.py --credential /private/path/credential.json show W
 CLI支持单HTML、含index.html的专用文件夹、ZIP；云端MCP只接收已展开的静态成品/文本/授权附件，不能读取本机路径、解ZIP或编译工程。框架项目先本地构建导出；动态依赖较多时用完整文件夹，不依赖单HTML的静态扫描自动收齐。
 
 - 包内用相对路径，支持多个HTML页面及CSS/JS/图片。适配根路径引用、硬编码网址和JS动态拼接依赖，不把子页拆成独立作品。
-- CLI可提取常见base64内嵌图片，保留图片原字节；不有损压缩用户原件绕过限额。
+- CLI可提取常见base64内嵌图片/视频/音频，默认按主文拆分为unlisted资源并替换静态引用，保留原字节；不有损压缩用户原件绕过限额。
 - 先读取categories / list_categories，选择现有二级完整ID，例如humanities/museums，不能只写museums。format为guide/article/report/tutorial/tool/visualization/portfolio之一，tags补充跨主题关联。
 - 新作品必需专属SVG/PNG/ICO图标，SVG自包含，16–32px可辨。不能用站点通用图标或封面代替。
 - 无封面自动排版兜底；已有封面用包内图片相对路径cover，不是远程URL。封面文件也要进入完整上传清单。
@@ -144,3 +144,17 @@ assets更新用同一receipt加--update，或同时指定work_id/expected_versio
 - 401需要恢复本人连接/凭证，403核对scope/归属，409核对version/revision/幂等内容，413调整包结构或选择分步，429遵守服务限流。未经用户同意不有损压缩原件。
 
 新测试作品验收后永久删除并核实清理；不要把测试网页长期留在正式目录。保留少量回执/日志，凭证、Cookie和原始个人文件不进入公开包。
+
+## 专辑与网页依赖资源（2.4.0）
+
+专辑只组织本人网页（包括已收录的网站），不把图片、视频或音频作为专辑成员。音视频播放器和交互留在网页内。专辑展示范围与成员网页独立：`unlisted`凭链接分享，`profile`进入本人已开启的主页；没有public档，不自动开启主页。分享unlisted不等于登录保护。新专辑未指定范围时按上面的询问规则一次确认；已指定或沿用更新时直接执行。默认unlisted不代替用户选择。
+
+先`list_my_albums` / `my-albums`，再`get_album` / `album ID`；新建用`save_album` / `album-save BODY.json`，更新附album_id。新建传slug/title/expected_revision=0/idempotency_key；更新用当前revision。`work_ids`是完整、有序、去重的本人网页ID数组，最多200份，同一网页可复用在多个专辑；省略保留，[]清空。修改专辑不修改网页URL或listing。归档用save_album(status=hidden)，恢复用published；永久删除用delete_album(confirm=true,expected_revision)或album-delete ID --expected-revision N --confirm，只删除专辑，保留成员网页和素材。409先重读，不覆盖别人的顺序。网页下架/删除后访客仅看到不可用占位。
+
+专辑封面：推荐1600×900（16:9），接受PNG/JPEG/WebP，文件≤5MiB，建议至少800×450，标题/主体留在中央安全区域。用户提供则校验实际格式/大小与裁切，保留原件；未提供由AI制作贴合主题的封面，不另行询问，服务自动生成SVG排版作为兜底。上传为unlisted独立素材后，传`cover_resource:{work_id,version,path}`；null恢复自动封面，省略沿用。封面不能代替网页专属图标。主页多个专辑位于作者资料下、网页列表上，宽屏3列/平板2列/手机1列。
+
+发布网页时检查HTML/CSS/JS/JSON的图片、video/audio/source、poster、srcset及base64内嵌媒体。先按SHA256/字节数复用本人素材，否则单独上传原字节资源，再以服务实际返回的精确版本URL替换网页引用，网页提交`dependencies:[{work_id,version,path}]`。这属于已授权网页的依赖处理，统一unlisted，不逐份询问，不额外扩大素材公开范围。外部原站URL可保留，不绕过平台限制抓取；不能收录无关个人原片。仅改URL不会减少播放媒体的总字节，改善的是HTML体积、按需加载与复用缓存；不擅自有损转码或宣称大文件续传已实现。
+
+本地CLI默认自动提取/上传/替换静态引用；动态拼接地址由AI检查适配，不保证任意脚本自动识别。无法安全拆分时保留完整包，并用`--keep-media-in-package`，仍遵守限额。云端MCP不自动编辑附件HTML：AI先上传素材（单份upload_asset，资源组inspect_files→prepare_upload(kind=asset,listing=unlisted)→upload_file→commit_upload），独立核对成功URL/字节后改写完整网页并声明dependencies；未成功不能发布悬空引用。单资源25MiB、资源组250文件/100MiB、HTML2MiB，超限保留质量并说明实际限制，不假装压小HTML就能上传任意视频。
+
+引用精确不可变版本；更新网页时保留仍使用的依赖，明确提供完整新清单（[]清空）。get_work/show返回dependency_files，my-materials返回sha256与引用。网页历史版本和有效草稿、专辑封面仍在引用时，素材归档/永久删除返回409；不得为清素材擅删正式网页。删除专辑不自动删除成员或资源。验收检查匿名播放/拖动/Range、原字节哈希、网页与专辑各自listing、主页/发现不泄露unlisted，并用少量测试后永久清理全部历史和独占资源。
