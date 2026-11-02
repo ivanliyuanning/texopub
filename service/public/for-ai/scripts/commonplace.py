@@ -4,6 +4,7 @@ import argparse, base64, posixpath, hashlib, html, json, mimetypes, os, re, sys,
 from pathlib import Path
 from html.parser import HTMLParser
 DEFAULT_API='https://commonplace-api.ivanliyuanning123.workers.dev'
+UPLOAD_API='https://texopub.com/api'
 CODE={'.html','.htm','.css','.js','.mjs','.json','.txt','.xml','.webmanifest','.wasm'}
 MEDIA={'.png','.jpg','.jpeg','.webp','.gif','.svg','.avif','.ico','.mp4','.webm','.mov','.mp3','.wav','.m4a','.ogg','.pdf','.zip','.woff','.woff2','.ttf','.csv','.xlsx','.docx','.pptx','.vtt','.srt','.glb','.gltf'}
 EXCLUDE={'node_modules','__pycache__','package.json','package-lock.json','_worker.js','_headers','_redirects','wrangler.json','wrangler.jsonc','credential.json','credentials.json','admin.json','service-account.json'}
@@ -17,7 +18,8 @@ def request(api,path,token=None,body=None,method='GET',idem=None,binary=False):
         else:headers['Content-Type']='application/octet-stream'
         headers['Content-Length']=str(len(body))
     if idem:headers['Idempotency-Key']=idem
-    req=urllib.request.Request(api.rstrip('/')+path,data=body,headers=headers,method=method)
+    transport=UPLOAD_API if binary and api.rstrip('/')==DEFAULT_API else api.rstrip('/')
+    req=urllib.request.Request(transport+path,data=body,headers=headers,method=method)
     for attempt in range(3):
         try:
             with urllib.request.urlopen(req,timeout=300 if binary else 90) as response:return json.load(response)

@@ -4,6 +4,15 @@ from pathlib import Path
 from unittest.mock import patch
 spec=importlib.util.spec_from_file_location('remote',Path(__file__).resolve().parents[1]/'scripts/remote_publish.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 class ResourceTests(unittest.TestCase):
+ def test_binary_transport_preserves_bytes_and_uses_official_primary_route(self):
+  import io
+  class Reply(io.BytesIO):
+   def __enter__(self):return self
+   def __exit__(self,*args):self.close()
+  raw=b'\x00ORIGINAL\xff'
+  with patch.object(m.urllib.request,'urlopen',return_value=Reply(b'{"ready":true}')) as send:
+   self.assertTrue(m.request(m.DEFAULT_API,'/v1/uploads/session/files/video.mp4','synthetic',raw,'PUT',binary=True)['ready'])
+  req=send.call_args.args[0];self.assertEqual(req.full_url,'https://texopub.com/api/v1/uploads/session/files/video.mp4');self.assertEqual(req.data,raw);self.assertEqual(req.get_header('Content-type'),'application/octet-stream');self.assertEqual(send.call_args.kwargs['timeout'],300)
  def test_all_media_extract_without_conversion(self):
   for mime,ext in [('image/png','.png'),('video/mp4','.mp4'),('audio/wav','.wav')]:
    raw=b'\x00ORIGINAL\xff'+mime.encode();uri='data:'+mime+';base64,'+base64.b64encode(raw).decode();result=m.extract_embedded({'index.html':('<source src="'+uri+'">').encode()});names=[p for p in result if p.endswith(ext)];self.assertEqual(len(names),1);self.assertEqual(result[names[0]],raw);self.assertNotIn(uri.encode(),result['index.html'])
