@@ -53,7 +53,7 @@ class Handler(BaseHTTPRequestHandler):
             p=fixed.get(url[len('/preview-assets/'):])
         elif url in {'/preview/','/preview.html'}: p=BASE/'preview.html'
         elif url.startswith('/assets/'):p=under(BASE,url.lstrip('/'))
-        elif url in {'/app.mjs','/model.mjs','/style.css','/preview.mjs','/preview.css'}:p=BASE/url.lstrip('/')
+        elif url in {'/app.mjs','/model.mjs','/demo-albums.mjs','/style.css','/preview.mjs','/preview.css'}:p=BASE/url.lstrip('/')
         elif not Path(url.rstrip('/')).suffix: p=BASE/'index.html'
         else:p=None
         if not p or not p.is_file(): return self.send_error(404,'Preview file not found')

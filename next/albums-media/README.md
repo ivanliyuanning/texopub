@@ -7,6 +7,7 @@
 - 专辑：<http://127.0.0.1:8792/albums/huidong-tennis-test/>
 - 本人专辑：<http://127.0.0.1:8792/space/albums/>
 - 当前个人主页：<http://127.0.0.1:8792/u/preview/>
+- 多专辑排版样例：<http://127.0.0.1:8792/u/preview/?albums=demo>（独立样例，不改变任何专辑listing）
 - 独立验收面板：<http://127.0.0.1:8792/preview/>
 
 在项目根目录运行：
@@ -54,6 +55,7 @@ node --check next/albums-media/model.mjs
 node --check next/albums-media/preview.mjs
 python3 -m py_compile next/albums-media/serve.py
 node next/albums-media/tests/acceptance.cjs
+node next/albums-media/tests/layout-clarity.cjs
 ```
 
 验收脚本复用本机已有Playwright及Chrome，不安装新依赖。`TEXOPUB_ALBUMS_PREVIEW`可指定不同主端口。需先启动预览服务。脚本在独立浏览器上下文测试，结束恢复专辑与成员unlisted，不改用户当前预览浏览器的状态。
@@ -61,3 +63,11 @@ node next/albums-media/tests/acceptance.cjs
 证据：`evidence/albums-media-20261102/preview/preview-verification.json`；桌面/390px/320px、音频页、主页展示场景截图也在同目录。测试覆盖展示矩阵、真实播放、沙盒标注页、跨源、生命周期模拟、多专辑复用、分享卡片、续传模拟、15页响应式、只读网络、键盘和减少动态效果。这里只是浏览器窄屏，没有手机真机验收。
 
 本轮没有生产 API、D1/R2、鉴权、真实分块续传、最终大文件限额、Skill/CLI/MCP工具变更或第三方平台适配验收；预览中的只读HTTP Range支持不能当作已修复生产Worker的尾部范围行为。后续按用户预览反馈修订，再按项目发布流程接入生产与全端工具，最后发布正式测试专辑及标注页。
+
+## 2026-11-02 预览反馈：多专辑与“我的”的指代
+
+- 增加三个可进入的排版样例：博物馆漫游、阅读伴页、交互小工具，引用已有三份公开目录快照；专辑样例本身未发布，也不扩大网球内容展示范围。
+- 在主页作者信息下、作品区上显示三张专辑卡片；1440px三列、1024px两列、390/320px一列。通过“查看全部”进入对应样例列表。
+- 验收面板页面选项新增“个人主页 · 多专辑排版示例”；URL驱动的排版样例不会修改浏览器中的专辑listing、成员listing或主页开关。
+- 预览身份改为“谁在浏览（仅预览）”：你（已登录）/收到链接的人（未登录）。未登录导航显示“登录”，管理页提示“登录后进入你的空间”，说明“我的”管理的是登录者自己的内容。直接进入该提示页不提供隐藏专辑的返回链接。
+- 新增5组针对性浏览器检查通过，四种宽度列数/无溢出、样例可进入、展示设置不变、访客分享与管理区分、本人视角恢复均已核对；JS异常0、网络写入0。证据 `layout-clarity-verification.json`、`multiple-albums-*`及`guest-own-space-clarified.png`。
