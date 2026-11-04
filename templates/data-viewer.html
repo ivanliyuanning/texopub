@@ -1,4 +1,4 @@
-<script>
+<script data-texopub-data>
 (()=>{'use strict';const frame=document.getElementById('texopub-work'),config={{DATA_CONFIG}};if(!config)return;let popup,port,connected=false,connectIds=[],pending=new Map(),running=0;
 const bar=document.querySelector('header'),button=document.createElement('button');button.textContent='连接数据';button.type='button';button.style='position:fixed;right:12px;bottom:14px;z-index:6;padding:9px 14px;border:1px solid #ccd8ce;border-radius:20px;background:#faf8f3;color:#245b44;font:13px system-ui;cursor:pointer';button.title='通过TexoPub登录，按作品权限连接数据';document.body.append(button);
 function reply(id,result,error){frame.contentWindow.postMessage({type:'texopub:data-response',id,result,error},'*');}

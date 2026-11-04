@@ -132,4 +132,4 @@ commonplace remote --credential data-credential.json data export --app APP_ID --
 7. Skill2.5.0/插件0.7.0、源码包、OpenAPI、SDK保持一致；既有连接刷新+新对话调用单独记录证据。手机和微信浏览器另验。
 8. 回退代码可禁用入口和白名单；新增D1与兼容主库表不随Git自动消失。保留正式数据，先导出再处理迁移，不把回退代码当撤回数据库。
 
-本地预览：`node scripts/data_preview.cjs`，打开`http://localhost:8789/preview/login?as=author`。所有账号、数据库、文件均是隔离的虚构预览，不连接生产；进程内保留，重启重建。
+本地预览：`node scripts/data_preview.cjs`，打开`http://localhost:8789/preview/login?as=author`。所有账号、数据库、文件均是隔离的虚构预览，不连接生产；进程内保留，重启重建。直接输入后点新增，平台将显示虚构身份选择；确认后自动续存，取消保留输入。本地演示的无弹窗适配不进入生产Worker，不能代替正式账号的受信窗口授权验收。
