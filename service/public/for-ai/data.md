@@ -1,6 +1,6 @@
 # TexoPub 通用数据能力
 
-状态：已按用户2026-11-04明确决定正式上线，生产API、独立D1与本人试用已启用；既有ChatGPT连接需要本人重新授权，不能自动扩旧scope。上线证据与剩余客户端验收见[云端数据上线记录](https://github.com/ivanliyuanning/texopub/blob/main/docs/云端数据上线记录-20261104.md)。基于Workers + 独立D1 + 现有R2，不运行用户自带服务器程序，不接受任意SQL。首轮按明确的发布者ID白名单启用，不开放全站注册即用。
+状态：已按用户2026-11-04明确决定正式上线，生产API、独立D1与本人试用已启用；数据OAuth须本人明确授权，不能自动扩旧scope；本人现有连接已完成新工具实调。上线与客户端验收证据见[云端数据上线记录](https://github.com/ivanliyuanning/texopub/blob/main/docs/云端数据上线记录-20261104.md)。基于Workers + 独立D1 + 现有R2，不运行用户自带服务器程序，不接受任意SQL。首轮按明确的发布者ID白名单启用，不开放全站注册即用。
 
 ## 能覆盖的需求
 
