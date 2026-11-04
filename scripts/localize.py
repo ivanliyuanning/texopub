@@ -16,7 +16,7 @@ def localize_community(root, target):
     pattern = re.compile('|'.join(re.escape(k) for k in sorted(translations, key=len, reverse=True)))
     english = target / 'en'
     english.mkdir(parents=True, exist_ok=True)
-    for name in ['app.mjs', 'applications.mjs', 'albums.mjs', 'account.mjs', 'api.mjs', 'icons.mjs', 'identity.mjs', 'loading.mjs', 'locale.mjs']:
+    for name in ['app.mjs', 'applications.mjs', 'capabilities.mjs', 'albums.mjs', 'account.mjs', 'api.mjs', 'icons.mjs', 'identity.mjs', 'loading.mjs', 'locale.mjs']:
         text = (source / name).read_text()
         # The legacy-name sentinel is data, not an interface label.
         text = text.replace("explicit!=='新创作者'", "explicit!=='\\u65b0\\u521b\\u4f5c\\u8005'")
