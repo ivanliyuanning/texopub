@@ -31,3 +31,8 @@ export async function checkSms(env,phone,challenge,code){
 export async function sendMail(env,email,code){
  return rpc(env,'mail','SingleSendMail',{RegionId:env.MAIL_REGION||'cn-hangzhou',AccountName:env.MAIL_FROM,AddressType:1,ReplyToAddress:false,FromAlias:'TexoPub',ToAddress:email,Subject:'TexoPub 验证码',TextBody:`你的 TexoPub 验证码为 ${code}，5 分钟内有效。用于登录或绑定备用邮箱。请勿转发；如非本人操作，请忽略。`});
 }
+
+// Recipient is resolved from the verified administrator account by the caller.
+export async function sendApplicationNotice(env,email,requestIds){
+ return rpc(env,'mail','SingleSendMail',{RegionId:env.MAIL_REGION||'cn-hangzhou',AccountName:env.MAIL_FROM,AddressType:1,ReplyToAddress:false,FromAlias:'TexoPub',ToAddress:email,Subject:`TexoPub：${requestIds.length} 个新的数据能力申请`,TextBody:`收到 ${requestIds.length} 个新的数据能力申请。\n\n申请编号：\n${requestIds.join('\n')}\n\n请登录管理员账号查看和处理：\n${env.APP_ORIGIN||'https://texopub.com'}/api/v1/data-applications/admin/\n\n申请已经保存。此提醒不会自动开通权限，邮件不附申请内容或申请人的联系方式。`});
+}

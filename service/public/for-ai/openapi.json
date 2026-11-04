@@ -27,6 +27,12 @@
         "scheme": "bearer",
         "bearerFormat": "txd_…",
         "description": "独立数据密钥；read/write/manage权限及应用范围均须明确授予。"
+      },
+      "accountSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-texopub",
+        "description": "本人主站浏览器登录；POST还须同源Origin和X-TexoPub-Request: space。发布密钥和插件OAuth不能替代本人申请或管理员登录。"
       }
     },
     "schemas": {
@@ -2838,6 +2844,316 @@
             }
           }
         }
+      }
+    },
+    "/v1/data-applications/me": {
+      "get": {
+        "operationId": "getMyDataApplication",
+        "summary": "本人申请状态；不返回管理员备注或邮箱",
+        "security": [
+          {
+            "accountSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "201": {
+            "description": "新申请已保存，提醒后台发送；不自动开通权限"
+          },
+          "401": {
+            "description": "需本人登录或近期验证"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "申请版本变化"
+          },
+          "422": {
+            "description": "字段格式无效"
+          },
+          "429": {
+            "description": "每日申请或服务存储额度已满"
+          }
+        }
+      }
+    },
+    "/v1/data-applications": {
+      "post": {
+        "operationId": "submitDataApplication",
+        "summary": "登录申请，重复提交沿用原申请；申请与邮件待办原子入库",
+        "security": [
+          {
+            "accountSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "201": {
+            "description": "新申请已保存，提醒后台发送；不自动开通权限"
+          },
+          "401": {
+            "description": "需本人登录或近期验证"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "申请版本变化"
+          },
+          "422": {
+            "description": "字段格式无效"
+          },
+          "429": {
+            "description": "每日申请或服务存储额度已满"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "purpose": {
+                    "type": "string",
+                    "minLength": 5,
+                    "maxLength": 1000
+                  },
+                  "site_url": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "description": "选填，HTTP(S)中只接受HTTPS且不含凭证"
+                  },
+                  "contact_email": {
+                    "type": "string",
+                    "maxLength": 254
+                  }
+                },
+                "required": [
+                  "purpose"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-TexoPub-Request",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "const": "space"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/data-applications/admin": {
+      "get": {
+        "operationId": "listDataApplications",
+        "summary": "管理员按状态分页查看申请及邮件状态",
+        "security": [
+          {
+            "accountSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "201": {
+            "description": "新申请已保存，提醒后台发送；不自动开通权限"
+          },
+          "401": {
+            "description": "需本人登录或近期验证"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "申请版本变化"
+          },
+          "422": {
+            "description": "字段格式无效"
+          },
+          "429": {
+            "description": "每日申请或服务存储额度已满"
+          }
+        },
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "pending",
+                "handled",
+                "all"
+              ]
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "description": "响应next_cursor，created:id格式"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/data-applications/admin/{id}/status": {
+      "post": {
+        "operationId": "processDataApplication",
+        "summary": "管理员近期登录，记录处理状态与备注；不自动开通数据能力",
+        "security": [
+          {
+            "accountSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "201": {
+            "description": "新申请已保存，提醒后台发送；不自动开通权限"
+          },
+          "401": {
+            "description": "需本人登录或近期验证"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "申请版本变化"
+          },
+          "422": {
+            "description": "字段格式无效"
+          },
+          "429": {
+            "description": "每日申请或服务存储额度已满"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "pending",
+                      "handled"
+                    ]
+                  },
+                  "expected_revision": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                },
+                "required": [
+                  "status",
+                  "expected_revision"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          },
+          {
+            "name": "X-TexoPub-Request",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "const": "space"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/data-applications/admin/{id}/retry": {
+      "post": {
+        "operationId": "retryApplicationNotice",
+        "summary": "管理员近期登录，重试未确认发送的邮件；不重发已确认任务",
+        "security": [
+          {
+            "accountSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "201": {
+            "description": "新申请已保存，提醒后台发送；不自动开通权限"
+          },
+          "401": {
+            "description": "需本人登录或近期验证"
+          },
+          "403": {
+            "description": "权限或CSRF校验失败"
+          },
+          "409": {
+            "description": "申请版本变化"
+          },
+          "422": {
+            "description": "字段格式无效"
+          },
+          "429": {
+            "description": "每日申请或服务存储额度已满"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          },
+          {
+            "name": "X-TexoPub-Request",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "const": "space"
+            }
+          }
+        ]
       }
     }
   },

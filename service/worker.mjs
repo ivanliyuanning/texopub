@@ -1,3 +1,4 @@
+import {applicationRoutes,deliverApplicationMail} from './applications.mjs';
 import dataViewerTemplate from '../templates/data-viewer.html';
 import {dataRoutes,DataError,dataJSON,prepareDataBinding,activateDataBinding,viewerData,dataMaintenance} from './data.mjs';
 import {resourceReferences,listAlbums,getAlbum,saveAlbum,deleteAlbum,albumCover} from './albums.mjs';
@@ -229,9 +230,10 @@ async function content(request,env,url){
  }
  return new Response(request.method==='HEAD'?null:object.body,{status:range?206:200,headers});
 }
-async function route(request,env,authenticatedPublisher=null){
+async function route(request,env,authenticatedPublisher=null,ctx=null){
  const url=new URL(request.url);url.pathname=url.pathname.replace(/^\/api(?=\/)/,'');if(request.method==='OPTIONS')return new Response(null,{status:204,headers:CORS});
  if(env.ROLE==='content')return content(request,env,url);
+ const applicationResponse=await applicationRoutes(request,env,url,ctx);if(applicationResponse)return applicationResponse;
  const dataResponse=await dataRoutes(request,env,url,authenticatedPublisher);if(dataResponse)return dataResponse;
  const albumPage=url.pathname.match(/^\/albums\/([a-f0-9]{32})\/?$/);
  if(albumPage&&['GET','HEAD'].includes(request.method)){
@@ -337,5 +339,5 @@ async function route(request,env,authenticatedPublisher=null){
  const finish=url.pathname.match(/^\/v1\/uploads\/([a-f0-9]{32})\/commit$/);if(finish&&request.method==='POST')return commit(env,p,finish[1]);
  fail(404,'接口不存在');
 }
-async function safeRoute(request,env,p=null){try{return await route(request,env,p);}catch(error){if(error instanceof AccountError&&new URL(request.url).pathname.includes('/v1/data'))return dataJSON({error:{code:error.status===401?'account_authentication':'request_denied',message:error.message}},error.status);if(error instanceof DataError)return dataJSON({error:{code:error.code,message:error.message,...error.extra}},error.status);if(/resource_in_use/.test(error.message))return response({error:'素材仍被网页版本、专辑封面、数据记录或历史引用，请先处理引用；未归档或删除素材'},409);if(/resource_unavailable|album_member_unavailable/.test(error.message))return response({error:'引用的资源或网页不存在、未发布或不属于当前空间'},409);if(error instanceof Failure||error instanceof AccountError||error instanceof CommunityError)return response({error:error.message},error.status);return response({error:'服务暂时不可用，请保留上传会话并重试'},503);}}
-export default {fetch(request,env){return safeRoute(request,env);},scheduled(event,env,ctx){if(env.ROLE==='api')ctx.waitUntil(dataMaintenance(env));}};
+async function safeRoute(request,env,p=null,ctx=null){try{return await route(request,env,p,ctx);}catch(error){if(error instanceof AccountError&&new URL(request.url).pathname.includes('/v1/data'))return dataJSON({error:{code:error.status===401?'account_authentication':'request_denied',message:error.message}},error.status);if(error instanceof DataError)return dataJSON({error:{code:error.code,message:error.message,...error.extra}},error.status);if(/resource_in_use/.test(error.message))return response({error:'素材仍被网页版本、专辑封面、数据记录或历史引用，请先处理引用；未归档或删除素材'},409);if(/resource_unavailable|album_member_unavailable/.test(error.message))return response({error:'引用的资源或网页不存在、未发布或不属于当前空间'},409);if(error instanceof Failure||error instanceof AccountError||error instanceof CommunityError)return response({error:error.message},error.status);return response({error:'服务暂时不可用，请保留上传会话并重试'},503);}}
+export default {fetch(request,env,ctx){return safeRoute(request,env,null,ctx);},scheduled(event,env,ctx){if(env.ROLE==='api')ctx.waitUntil(event.cron==='*/5 * * * *'?deliverApplicationMail(env):dataMaintenance(env));}};
