@@ -14,6 +14,8 @@ for rel in ALLOWED:
     target=public/'for-ai'/rel
     target.parent.mkdir(parents=True,exist_ok=True)
     shutil.copy2(source/rel,target)
+# Keep the standalone data API guide in sync with its maintained source.
+shutil.copy2(ROOT/'docs/通用数据能力接入.md',public/'for-ai/data.md')
 (public/'downloads').mkdir(exist_ok=True)
 shutil.copy2(ROOT/'scripts/remote_publish.py',public/'downloads/commonplace.py')
 archive=public/'downloads'/f'commonplace-skill-v{VERSION}.zip'
