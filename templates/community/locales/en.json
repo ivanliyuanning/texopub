@@ -308,5 +308,11 @@
   "网页中的图片与音视频": "Images, video and audio in webpages",
   "AI 将依赖媒体单独上传或复用，把引用替换成素材地址。播放器留在网页内，专辑只列网页；保留原字节，不自动降低质量。": "Your AI uploads or reuses media and replaces references with resource URLs. Playback stays in the webpage and albums contain webpages only. Original bytes are preserved without automatic quality reduction.",
   "专辑与封面": "Albums and covers",
-  "专辑默认不展示，可在已开启的个人主页顶部展示。封面推荐 1600×900（16:9），JPG/PNG/WebP、≤5MiB；未提供时自动生成。": "Albums default to unlisted and can appear at the top of an enabled profile. Recommended cover: 1600×900 (16:9), JPG/PNG/WebP, up to 5 MiB. A cover is generated when omitted."
+  "专辑默认不展示，可在已开启的个人主页顶部展示。封面推荐 1600×900（16:9），JPG/PNG/WebP、≤5MiB；未提供时自动生成。": "Albums default to unlisted and can appear at the top of an enabled profile. Recommended cover: 1600×900 (16:9), JPG/PNG/WebP, up to 5 MiB. A cover is generated when omitted.",
+  "数据空间": "Data space",
+  "结构化记录、访客权限和独立数据密钥，分别计额。": "Structured records, visitor permissions and separate data credentials, with separate quotas.",
+  "查看数据用量与授权 →": "View data usage and permissions →",
+  "读取你全部当前与未来作品的数据，包括访客记录与历史": "Read data from all your current and future works, including visitor records and history",
+  "新增、修改、恢复与删除你全部当前与未来作品的数据及历史": "Create, edit, restore and delete records and history in all your current and future works",
+  "管理你全部当前与未来作品的数据应用：创建应用、配置集合权限、暂停访问、撤销连接或永久删除应用": "Manage data apps for all your current and future works: create apps, configure collection permissions, pause access, revoke connections or permanently delete apps"
 }

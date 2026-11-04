@@ -1,3 +1,4 @@
+import {deleteAppData} from './data-lifecycle.mjs';
 import {AccountError} from './accounts.mjs';
 const S=(e,q,...p)=>e.DB.prepare(q).bind(...p);
 const one=(e,q,...p)=>S(e,q,...p).first();
@@ -33,6 +34,7 @@ export async function deleteWork(e,p,workId,b){
    if(!r.meta.changes)bad(409,'内容已变化，请刷新后再删除');
    w=await one(e,'SELECT * FROM works WHERE id=?',w.id);
   }
+  const dataCleanup=await deleteAppData(e,w.id,true);if(dataCleanup?.deleting)return {deleted:false,deleting:true,work_id:w.id,note:'正在分批清理作品数据，请使用相同参数继续。'};
   // Keep references until R2 succeeds. A failed or interrupted request is safe to
   // retry with the same work and version. Other deleting works are inaccessible
   // and do not pin legacy objects indefinitely when two cleanups run together.

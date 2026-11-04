@@ -123,3 +123,13 @@ When publishing webpages inspect HTML/CSS/JS/JSON, image/video/audio/source, pos
 The local CLI handles supported static references automatically. AI must inspect dynamic URL construction; use --keep-media-in-package for a complete package when safe extraction is unavailable, within existing limits. Cloud MCP does not rewrite attachment HTML automatically: upload one asset with upload_asset, or a group with inspect_files→prepare_upload(kind=asset,listing=unlisted)→upload_file→commit_upload, verify returned URLs/bytes, then rewrite and publish the complete page with dependencies. Do not publish broken links on partial failure. Limits remain 25MiB/file, 250 files/100MiB per group, 2MiB HTML; preserve quality if exceeded.
 
 Dependencies pin exact versions. On webpage update explicitly send the complete retained dependency array; [] clears it. get_work/show returns dependency_files; list_my_materials returns sha256 and references. Published historical webpage versions, valid drafts and album covers prevent asset archive/deletion with 409. Never delete a real webpage merely to remove an asset. Album deletion does not delete webpages or media. Verify anonymous playback/seeking/Range, original hashes, independent listing and no unlisted homepage/discovery leakage; permanently remove test versions and exclusive resources afterward.
+
+## 通用数据试用（2.5.0 / 插件0.7.0）
+
+当前按账号开放。文件默认5GiB，结构化数据50MiB/账号、25MiB/作品，图片视频走文件空间。先get_data_usage/list_data_apps核对是否启用；旧发布密钥、旧OAuth授权不会自动扩权。本人在 `/api/v1/data/console` 创建独立数据凭证；OAuth需重新明确同意 texopub:data:read / write / manage。不能代替用户点击真实账号授权或把管理密钥写进网页。
+
+托管网页先发布，再create_data_app(work_id)，configure_data_app声明集合（owner、public_read或user_private）、字段、索引，使用返回data_binding完整更新原网页。配置随网页发布生效；普通更新省略沿用。网页引入 `https://texopub.com/api/v1/data/sdk.js`，用 `TexoPubData.collection(name)` 查询/增删改、历史/恢复；私人操作先connect，由用户点击平台外层「连接数据」并在受信弹窗确认，弹窗保持打开。不要增加allow-same-origin。user_private隔离其他访客，作者及其授权AI仍可管理全部数据，需向访客说明。
+
+query_data_records分页limit≤50，where只能完整匹配声明索引的等值条件；持续next_cursor完成导出，409游标失效必须重新开始。create需要稳定idempotency_key；update/remove/restore/clear_history需要读取到的expected_revision。历史至多5版/7天，计入额度。重试新增保留幂等键，冲突重新读记录，不盲目覆盖。asset_ref只能引用本人已发布资源的精确work_id/version/path；记录和历史仍引用时不可归档/删除素材。
+
+删除记录/历史/集合/应用仅按用户明确指示，集合删除需先get/list_data_apps(app_id)读集合revision。分批删除返回deleting时用相同参数继续。删除网页联动永久清理数据、历史、访客授权和资源引用；删除数据应用保留网页文件。独立数据凭证用CLI `--credential data-credential.json data ...`，不要误用普通发布凭证。接入和限制见 `https://texopub.com/for-ai/data.md`，OpenAPI只使用声明接口，不接受用户SQL/任意扫描。

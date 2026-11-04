@@ -1,4 +1,4 @@
-"""Update the existing ChatGPT-created plugin without changing its identity or scopes."""
+"""Update the existing ChatGPT-created plugin without changing its identity; new data scopes require explicit OAuth consent."""
 from pathlib import Path
 import json,zipfile,hashlib,argparse,re
 ROOT=Path(__file__).resolve().parents[1];SRC=ROOT/'service/plugin'

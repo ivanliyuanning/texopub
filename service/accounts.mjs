@@ -75,7 +75,7 @@ async function verify(r,e){
  }
  a=await one(e,c.channel==='sms'?'SELECT * FROM accounts WHERE phone=?':'SELECT * FROM accounts WHERE email=?',c.subject);
  if(!a&&c.channel==='email')bad(400,'验证码不正确或邮箱尚未绑定');
- if(!a){const pid=ID(),aid=ID();try{await e.DB.batch([S(e,'INSERT INTO publishers(id,name,token_hash,created,name_source,lexicon_version) VALUES(?,?,?,?,?,?)',pid,defaultCreatorName(pid),'disabled:'+random(),T(),'generated',1),S(e,'INSERT INTO accounts(id,publisher_id,phone,created) VALUES(?,?,?,?)',aid,pid,c.subject,T())]);}catch(err){a=await one(e,'SELECT * FROM accounts WHERE phone=?',c.subject);if(!a)throw err;}if(!a)a=await one(e,'SELECT * FROM accounts WHERE id=?',aid);}
+ if(!a){const pid=ID(),aid=ID();try{await e.DB.batch([S(e,'INSERT INTO publishers(id,name,token_hash,created,name_source,lexicon_version,quota_bytes) VALUES(?,?,?,?,?,?,?)',pid,defaultCreatorName(pid),'disabled:'+random(),T(),'generated',1,5368709120),S(e,'INSERT INTO accounts(id,publisher_id,phone,created) VALUES(?,?,?,?)',aid,pid,c.subject,T())]);}catch(err){a=await one(e,'SELECT * FROM accounts WHERE phone=?',c.subject);if(!a)throw err;}if(!a)a=await one(e,'SELECT * FROM accounts WHERE id=?',aid);}
  const p=await one(e,'SELECT revoked FROM publishers WHERE id=?',a.publisher_id);if(p.revoked)bad(403,'此空间已停用');
  const token=random();await S(e,'INSERT INTO login_sessions(token_hash,account_id,created,expires) VALUES(?,?,?,?)',await sha(token),a.id,T(),T()+2592000).run();return out({logged_in:true},200,cookie(token));
 }

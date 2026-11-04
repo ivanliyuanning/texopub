@@ -1,7 +1,7 @@
 PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS publishers (
  id TEXT PRIMARY KEY, name TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE,
- revoked INTEGER NOT NULL DEFAULT 0, quota_bytes INTEGER NOT NULL DEFAULT 536870912,
+ revoked INTEGER NOT NULL DEFAULT 0, quota_bytes INTEGER NOT NULL DEFAULT 5368709120,
  daily_uploads INTEGER NOT NULL DEFAULT 20, created INTEGER NOT NULL,
  default_listing TEXT NOT NULL DEFAULT 'public' CHECK(default_listing IN ('unlisted','profile','public')),
  bio TEXT NOT NULL DEFAULT '',avatar_url TEXT NOT NULL DEFAULT '',profile_revision INTEGER NOT NULL DEFAULT 0,
@@ -131,4 +131,10 @@ CREATE TRIGGER IF NOT EXISTS protect_referenced_resource BEFORE UPDATE OF delete
  WHERE d.asset_id=OLD.id AND w.deleted_at IS NULL AND (v.state='published' OR v.expires>=unixepoch()))
  OR EXISTS(SELECT 1 FROM albums a WHERE a.cover_asset_id=OLD.id AND a.status!='deleted')
  THEN RAISE(ABORT,'resource_in_use') END;
+END;
+
+CREATE TABLE IF NOT EXISTS data_resource_pins(app_id TEXT NOT NULL,record_id TEXT NOT NULL,publisher_id TEXT NOT NULL,asset_id TEXT NOT NULL REFERENCES works(id),asset_version TEXT NOT NULL,asset_path TEXT NOT NULL,PRIMARY KEY(app_id,record_id,asset_id,asset_version,asset_path));
+CREATE INDEX IF NOT EXISTS data_resource_pins_asset ON data_resource_pins(asset_id);
+CREATE TRIGGER IF NOT EXISTS protect_data_resource BEFORE UPDATE OF deleted_at,status ON works WHEN OLD.kind='asset' AND (NEW.deleted_at IS NOT NULL OR NEW.status!='published') BEGIN
+ SELECT CASE WHEN EXISTS(SELECT 1 FROM data_resource_pins WHERE asset_id=OLD.id) THEN RAISE(ABORT,'resource_in_use') END;
 END;

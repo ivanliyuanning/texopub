@@ -1,9 +1,9 @@
 {
   "name": "texopub",
-  "version": "0.6.0",
-  "url": "https://texopub.com/downloads/texopub-plugin-v0.6.0.zip",
-  "sha256": "eee3384a3469b394378a4dcc033f589a588ba7d93dd4aa1e05d93a3681f68674",
-  "bytes": 13550,
+  "version": "0.7.0",
+  "url": "https://texopub.com/downloads/texopub-plugin-v0.7.0.zip",
+  "sha256": "8f1c2f6a4c567253ec81dbc0e4f3f35ebb472c6919846827f2c00fd86b5f347d",
+  "bytes": 14974,
   "files": [
     "plugin.json",
     "mcp.json",

@@ -187,6 +187,7 @@ def main(argv=None):
     ap.add_argument('--api',default=DEFAULT_API)
     ap.add_argument('--credential',type=Path,default=Path(os.environ.get('COMMONPLACE_CREDENTIAL',str(Path.home()/'.config/commonplace/credential.json'))))
     subs=ap.add_subparsers(dest='command',required=True)
+    data_cmd=subs.add_parser('data');data_cmd.add_argument('operation',choices=['capabilities','usage','apps','app','create-app','config','state','grants','revoke-grant','delete-app','delete-collection','query','get','create','update','remove','history','restore','clear-history','export']);data_cmd.add_argument('--app');data_cmd.add_argument('--collection');data_cmd.add_argument('--body',type=Path);data_cmd.add_argument('--output',type=Path)
     subs.add_parser('categories');subs.add_parser('me');subs.add_parser('list');subs.add_parser('materials');subs.add_parser('my-works');subs.add_parser('my-materials')
     subs.add_parser('my-albums')
     album_show=subs.add_parser('album');album_show.add_argument('album_id')
@@ -217,7 +218,7 @@ def main(argv=None):
         if command in {'publish','submit'}:p.add_argument('--ai-partners',type=Path,help='真实AI参与记录JSON文件；省略沿用，空数组清空')
         p.add_argument('--listing',choices=['unlisted','profile','public'],help='不展示 / 仅个人主页 / 公开展示；三档均可通过链接访问')
         if command=='publish':
-            p.add_argument('--cover');p.add_argument('--dependencies',type=Path);p.add_argument('--keep-media-in-package',action='store_true',help='兼容选项：媒体作为网页包内文件，不单独托管')
+            p.add_argument('--data-binding',type=Path,help='configure_data_app返回的data_binding JSON');p.add_argument('--cover');p.add_argument('--dependencies',type=Path);p.add_argument('--keep-media-in-package',action='store_true',help='兼容选项：媒体作为网页包内文件，不单独托管')
         if command=='submit':p.add_argument('--link-status',choices=['unchecked','unavailable'],default='unchecked')
     args=ap.parse_args(argv)
     if args.command=='configure':
@@ -234,6 +235,30 @@ def main(argv=None):
     if args.command in {'categories','list','materials'}:
         route={'categories':'/v1/categories','list':'/v1/catalog','materials':'/v1/materials','show':'/v1/works/'+getattr(args,'work_id','')}[args.command]
         result=request(api,route);print(json.dumps(result,ensure_ascii=False,indent=2));return
+    if args.command=='data':
+        op=args.operation;body=json.loads(args.body.read_text()) if args.body else {};route='/v1/data/'+({'capabilities':'capabilities','usage':'usage','apps':'apps','create-app':'apps'}.get(op,'apps/'+str(args.app)))
+        if op not in {'capabilities','usage','apps','create-app'} and not re.fullmatch('[a-f0-9]{32}',args.app or ''):raise Error('需要--app标识')
+        read=op in {'capabilities','usage','apps','app','grants'}
+        if op in {'config','state','grants','revoke-grant','delete-app'}:route+='/'+{'revoke-grant':'grants/revoke','delete-app':'delete'}.get(op,op)
+        elif op in {'query','get','create','update','remove','history','restore','clear-history','export','delete-collection'}:
+            if not re.fullmatch('[a-z][a-z0-9_]{0,39}',args.collection or ''):raise Error('需要--collection')
+            route+='/collections/'+args.collection+'/'+('delete' if op=='delete-collection' else op.replace('-','_'))
+        if op!='capabilities' and not token:raise Error('需要独立数据凭证；现有发布密钥不含数据权限')
+        result=request(api,route,token,None if read else body,'GET' if read else 'POST')
+        if op=='export' and args.output:
+            args.output.parent.mkdir(parents=True,exist_ok=True)
+            if args.output.exists():raise Error('导出目标已存在，不覆盖现有文件')
+            partial=args.output.with_name(args.output.name+'.partial')
+            fd=os.open(partial,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+            with os.fdopen(fd,'w') as out:
+                while True:
+                    for record in result['records']:out.write(json.dumps(record,ensure_ascii=False)+'\n')
+                    if not result.get('next_cursor'):break
+                    result=request(api,route,token,{**body,'cursor':result['next_cursor']},'POST')
+            os.link(partial,args.output);partial.unlink()
+            print(json.dumps({'exported':str(args.output.resolve())},ensure_ascii=False))
+        else:print(json.dumps(result,ensure_ascii=False,indent=2))
+        return
     if not token:raise Error('缺少发布密钥；请到https://texopub.com/space/settings/keys/登录后创建并下载AI凭证，通过--credential指定文件。不要提供短信验证码或云平台密钥。')
     if args.command in {'my-works','my-materials'}:
         route='/v1/me/works' if args.command=='my-works' else '/v1/me/materials'
@@ -359,6 +384,7 @@ def main(argv=None):
         if args.work_id:body.update({'work_id':args.work_id,'expected_version':args.expected_version})
         elif previous.get('published') and getattr(args,'update',False):body.update({'work_id':previous['work']['id'],'expected_version':previous['work']['version']})
         if args.command=='publish':
+            if args.data_binding:body['data_binding']=json.loads(args.data_binding.read_text())
             supplied_refs=json.loads(args.dependencies.read_text()) if args.dependencies else []
             if not isinstance(supplied_refs,list) or any(not isinstance(r,dict) or any(not isinstance(r.get(k),str) or not r[k] for k in ['work_id','version','path']) for r in supplied_refs):raise Error('dependencies需要包含work_id、version和path的资源引用数组')
             if any(len(b)>2*1024**2 for n,b in payload.items() if Path(n).suffix.lower() in {'.html','.htm'}):raise Error('提取媒体后的HTML仍超过2MiB，请先精简页面')

@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "TexoPub.ai 个人空间与发布 API",
-    "version": "2.4.0",
-    "description": "网页和独立素材统一listing三档展示；所有已发布链接无需登录。管理、上传、修改和删除需要所属账号授权。新建采用空间默认，更新省略listing保留原值。旧visibility=private仅兼容为unlisted。 专辑仅收本人网页，unlisted/profile两档独立控制主页展示。资源组支持原字节图片、视频、音频；网页记录不可变版本依赖，仍被引用的素材不可归档或删除。"
+    "version": "2.5.0",
+    "description": "网页和独立素材统一listing三档展示；所有已发布链接无需登录。管理、上传、修改和删除需要所属账号授权。新建采用空间默认，更新省略listing保留原值。旧visibility=private仅兼容为unlisted。 专辑仅收本人网页，unlisted/profile两档独立控制主页展示。资源组支持原字节图片、视频、音频；网页记录不可变版本依赖，仍被引用的素材不可归档或删除。 数据能力按账号试用开放，独立数据凭证与OAuth数据scope不继承旧发布权限；完整接入见/for-ai/data.md。"
   },
   "servers": [
     {
@@ -21,6 +21,12 @@
         "type": "http",
         "scheme": "bearer",
         "description": "用户在个人空间创建的只读或发布密钥，含有效期，可独立撤销；兼容旧邀请凭证。不得使用短信验证码或云平台密钥。"
+      },
+      "dataCredential": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "txd_…",
+        "description": "独立数据密钥；read/write/manage权限及应用范围均须明确授予。"
       }
     },
     "schemas": {
@@ -414,6 +420,29 @@
                       }
                     },
                     "description": "仅网页使用。引用本人已发布资源组中ready的精确版本文件；更新省略沿用，[]清空。"
+                  },
+                  "data_binding": {
+                    "type": "object",
+                    "properties": {
+                      "app_id": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{32}$"
+                      },
+                      "revision": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "config_hash": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      }
+                    },
+                    "required": [
+                      "app_id",
+                      "revision",
+                      "config_hash"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "allOf": [
@@ -1304,6 +1333,1511 @@
             }
           }
         ]
+      }
+    },
+    "/v1/data/capabilities": {
+      "get": {
+        "operationId": "dataCapabilities",
+        "summary": "数据版本、配额、模式与查询限制",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少None权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        }
+      }
+    },
+    "/v1/data/usage": {
+      "get": {
+        "operationId": "dataUsage",
+        "summary": "分别读取文件和数据库用量、日预算",
+        "security": [
+          {
+            "dataCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少read权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        }
+      }
+    },
+    "/v1/data/apps": {
+      "get": {
+        "operationId": "dataApps",
+        "summary": "应用列表及当前/待发布配置",
+        "security": [
+          {
+            "dataCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少read权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createDataApp",
+        "summary": "为本人已托管网页创建应用",
+        "security": [
+          {
+            "dataCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少manage权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "work_id": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{32}$"
+                  }
+                },
+                "required": [
+                  "work_id"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/data/apps/{app}": {
+      "get": {
+        "operationId": "getDataApp",
+        "summary": "应用详情、集合revision与发布绑定",
+        "security": [
+          {
+            "dataCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少read权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        },
+        "parameters": [
+          {
+            "name": "app",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/data/apps/{app}/config": {
+      "post": {
+        "operationId": "configureDataApp",
+        "summary": "声明集合和字段；返回data_binding随网页新版本发布后生效",
+        "security": [
+          {
+            "dataCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少manage权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        },
+        "parameters": [
+          {
+            "name": "app",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expected_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "collections": {
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "expected_revision",
+                  "collections"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/data/apps/{app}/state": {
+      "post": {
+        "operationId": "setDataAppState",
+        "summary": "暂停或恢复应用运行时",
+        "security": [
+          {
+            "dataCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少manage权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        },
+        "parameters": [
+          {
+            "name": "app",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expected_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "state": {
+                    "enum": [
+                      "active",
+                      "paused"
+                    ]
+                  }
+                },
+                "required": [
+                  "expected_revision",
+                  "state"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/data/apps/{app}/grants": {
+      "get": {
+        "operationId": "listDataGrants",
+        "summary": "读取连接列表，不返回会话",
+        "security": [
+          {
+            "dataCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少manage权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        },
+        "parameters": [
+          {
+            "name": "app",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/data/apps/{app}/grants/revoke": {
+      "post": {
+        "operationId": "revokeDataGrant",
+        "summary": "撤销连接",
+        "security": [
+          {
+            "dataCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少manage权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        },
+        "parameters": [
+          {
+            "name": "app",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{32}$"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/data/apps/{app}/delete": {
+      "post": {
+        "operationId": "deleteDataApp",
+        "summary": "永久分批清理数据应用，网页文件保留",
+        "security": [
+          {
+            "dataCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少manage权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        },
+        "parameters": [
+          {
+            "name": "app",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expected_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "confirm": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "expected_revision",
+                  "confirm"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/data/apps/{app}/collections/{collection}/query": {
+      "post": {
+        "operationId": "dataCollectionQuery",
+        "summary": "按声明索引等值查询、游标分页",
+        "security": [
+          {
+            "dataCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少read权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        },
+        "parameters": [
+          {
+            "name": "app",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,39}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50
+                  },
+                  "where": {
+                    "type": "object"
+                  },
+                  "fields": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "cursor": {
+                    "type": "string",
+                    "maxLength": 4096
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/data/apps/{app}/collections/{collection}/export": {
+      "post": {
+        "operationId": "dataCollectionExport",
+        "summary": "分页导出；持续next_cursor直到null，游标失效须重启",
+        "security": [
+          {
+            "dataCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少read权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        },
+        "parameters": [
+          {
+            "name": "app",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,39}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50
+                  },
+                  "where": {
+                    "type": "object"
+                  },
+                  "fields": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "cursor": {
+                    "type": "string",
+                    "maxLength": 4096
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/data/apps/{app}/collections/{collection}/get": {
+      "post": {
+        "operationId": "dataCollectionGet",
+        "summary": "读取一条记录",
+        "security": [
+          {
+            "dataCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少read权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        },
+        "parameters": [
+          {
+            "name": "app",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,39}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{32}$"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/data/apps/{app}/collections/{collection}/history": {
+      "post": {
+        "operationId": "dataCollectionHistory",
+        "summary": "读取有效历史，最多5版/7天",
+        "security": [
+          {
+            "dataCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少read权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        },
+        "parameters": [
+          {
+            "name": "app",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,39}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{32}$"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/data/apps/{app}/collections/{collection}/create": {
+      "post": {
+        "operationId": "dataCollectionCreate",
+        "summary": "幂等新增；user_private管理新增需subject_id",
+        "security": [
+          {
+            "dataCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少write权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        },
+        "parameters": [
+          {
+            "name": "app",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,39}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object"
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 100
+                  },
+                  "subject_id": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{32}$"
+                  }
+                },
+                "required": [
+                  "data",
+                  "idempotency_key"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/data/apps/{app}/collections/{collection}/update": {
+      "post": {
+        "operationId": "dataCollectionUpdate",
+        "summary": "完整替换记录，须匹配revision",
+        "security": [
+          {
+            "dataCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少write权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        },
+        "parameters": [
+          {
+            "name": "app",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,39}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{32}$"
+                  },
+                  "expected_revision": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "data": {
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "id",
+                  "expected_revision",
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/data/apps/{app}/collections/{collection}/restore": {
+      "post": {
+        "operationId": "dataCollectionRestore",
+        "summary": "恢复历史并生成新revision",
+        "security": [
+          {
+            "dataCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少write权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        },
+        "parameters": [
+          {
+            "name": "app",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,39}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{32}$"
+                  },
+                  "expected_revision": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "history_revision": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "id",
+                  "expected_revision",
+                  "history_revision"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/data/apps/{app}/collections/{collection}/remove": {
+      "post": {
+        "operationId": "dataCollectionRemove",
+        "summary": "永久删除记录与全部历史",
+        "security": [
+          {
+            "dataCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少write权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        },
+        "parameters": [
+          {
+            "name": "app",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,39}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{32}$"
+                  },
+                  "expected_revision": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "id",
+                  "expected_revision"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/data/apps/{app}/collections/{collection}/clear_history": {
+      "post": {
+        "operationId": "dataCollectionClearHistory",
+        "summary": "明确清空该记录历史",
+        "security": [
+          {
+            "dataCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少write权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        },
+        "parameters": [
+          {
+            "name": "app",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,39}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{32}$"
+                  },
+                  "expected_revision": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "confirm": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "id",
+                  "expected_revision",
+                  "confirm"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/data/apps/{app}/collections/{collection}/delete": {
+      "post": {
+        "operationId": "dataCollectionDelete",
+        "summary": "永久分批删除集合，再更新配置并重新发布",
+        "security": [
+          {
+            "dataCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，应用/集合删除可能返回deleting=true，继续相同请求直至deleted=true"
+          },
+          "400": {
+            "description": "无效请求"
+          },
+          "401": {
+            "description": "凭证或登录无效"
+          },
+          "403": {
+            "description": "试用未开启或缺少manage权限"
+          },
+          "409": {
+            "description": "版本冲突、游标失效、需要迁移或内容正在操作"
+          },
+          "413": {
+            "description": "数据字节超限"
+          },
+          "422": {
+            "description": "字段/查询无效"
+          },
+          "428": {
+            "description": "缺少revision或幂等键"
+          },
+          "429": {
+            "description": "达到频率或日预算限制"
+          },
+          "507": {
+            "description": "数据库容量或记录数超限"
+          }
+        },
+        "parameters": [
+          {
+            "name": "app",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,39}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expected_revision": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "confirm": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "expected_revision",
+                  "confirm"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
       }
     }
   },
