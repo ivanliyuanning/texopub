@@ -35,7 +35,14 @@ class PublicSkillTests(unittest.TestCase):
         # Actual private credential bytes must never be included in the public package.
         for path in (ROOT/'.secrets').glob('*.json'):
             secrets=json.loads(path.read_text())
-            for key,value in secrets.items():
+            def credentials(node):
+                if isinstance(node,dict):
+                    for key,value in node.items():
+                        yield key,value
+                        yield from credentials(value)
+                elif isinstance(node,list):
+                    for value in node:yield from credentials(value)
+            for key,value in credentials(secrets):
                 if ('token' in key.lower() or 'secret' in key.lower()) and isinstance(value,str) and len(value)>20:
                     for rel in expected:
                         self.assertNotIn(value,(public/'for-ai'/rel).read_text())

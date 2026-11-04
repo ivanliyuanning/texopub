@@ -381,7 +381,7 @@ def main(argv=None):
             else:
                 if source.suffix.lower() not in MEDIA|{'.txt','.json'}:raise Error('不支持的独立素材类型')
                 payload={source.name:source.read_bytes()}
-        if args.work_id:body.update({'work_id':args.work_id,'expected_version':args.expected_version})
+        if args.work_id:body.update({'work_id':args.work_id,'expected_version':None if args.expected_version=='draft' else args.expected_version})
         elif previous.get('published') and getattr(args,'update',False):body.update({'work_id':previous['work']['id'],'expected_version':previous['work']['version']})
         if args.command=='publish':
             if args.data_binding:body['data_binding']=json.loads(args.data_binding.read_text())

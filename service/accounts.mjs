@@ -16,7 +16,16 @@ const appOrigin=e=>e.APP_ORIGIN||'https://texopub.com';
 function browser(r,e){if(new URL(r.url).origin!==appOrigin(e))bad(403,'请从本站个人空间操作');if(r.method!=='GET'&&(r.headers.get('Origin')!==appOrigin(e)||r.headers.get('X-TexoPub-Request')!=='space'))bad(403,'请刷新个人空间后重试');}
 const cookie=(token,age=2592000)=>`${COOKIE}=${token}; Path=/; Max-Age=${age}; HttpOnly; Secure; SameSite=Lax`;
 export async function browserAccount(r,e,recent=false){
- browser(r,e);const token=r.headers.get('Cookie')?.split(';').map(x=>x.trim()).find(x=>x.startsWith(COOKIE+'='))?.slice(COOKIE.length+1);if(!token)bad(401,'请先登录');
+ browser(r,e);return sessionAccount(r,e,recent);
+}
+// Only the platform-owned, opaque-work outer viewer may reuse the host-only login.
+export async function workAuthorAccount(r,e){
+ const allowed=[appOrigin(e),e.CONTENT_ORIGIN?.replace(/\/$/,'')];
+ if(new URL(r.url).origin!==appOrigin(e)||!allowed.includes(r.headers.get('Origin'))||r.headers.get('X-TexoPub-Request')!=='work')bad(403,'请从TexoPub作品页面操作');
+ return sessionAccount(r,e);
+}
+async function sessionAccount(r,e,recent=false){
+ const token=r.headers.get('Cookie')?.split(';').map(x=>x.trim()).find(x=>x.startsWith(COOKIE+'='))?.slice(COOKIE.length+1);if(!token)bad(401,'请先登录');
  const a=await one(e,'SELECT a.*,s.created AS verified_at,s.token_hash AS session_hash FROM login_sessions s JOIN accounts a ON a.id=s.account_id JOIN publishers p ON p.id=a.publisher_id WHERE s.token_hash=? AND s.expires>? AND p.revoked=0',await sha(token),T());
  if(!a)bad(401,'登录已过期，请重新验证');if(recent&&a.verified_at<T()-900)bad(401,'此操作需要重新验证手机号或备用邮箱');return a;
 }

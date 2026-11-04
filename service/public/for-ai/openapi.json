@@ -290,7 +290,8 @@
                   },
                   "expected_version": {
                     "type": "string",
-                    "description": "更新作品时必填，来自上次发布返回值"
+                    "description": "当前版本；恢复无发布版本的初始draft明确传null，必须同时提供work_id。",
+                    "nullable": true
                   },
                   "files": {
                     "type": "array",
@@ -513,7 +514,7 @@
             "description": "额度或大小超限"
           }
         },
-        "description": "提交完整的新作品/素材/外站图标清单；更新同时提供原work_id与当前expected_version。不是文件补丁。更新省略listing与ai_partners沿用原值，ai_partners=[]明确清空；不要假定摘要、标签、format、cover等省略仍保留。不存在独立作品metadata-only更新接口。"
+        "description": "提交完整的新作品/素材/外站图标清单；更新同时提供原work_id与当前expected_version。不是文件补丁。更新省略listing与ai_partners沿用原值，ai_partners=[]明确清空；不要假定摘要、标签、format、cover等省略仍保留。不存在独立作品metadata-only更新接口。 初始draft可用work_id及expected_version:null恢复；已发布版本不可传null。"
       }
     },
     "/v1/uploads/{id}/files/{path}": {

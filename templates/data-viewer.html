@@ -1,18 +1,53 @@
 <script data-texopub-data>
-(()=>{'use strict';const frame=document.getElementById('texopub-work'),config={{DATA_CONFIG}};if(!config)return;let popup,port,connected=false,connectIds=[],pending=new Map(),running=0;
-const bar=document.querySelector('header'),button=document.createElement('button');button.textContent='连接数据';button.type='button';button.style='position:fixed;right:12px;bottom:14px;z-index:6;padding:9px 14px;border:1px solid #ccd8ce;border-radius:20px;background:#faf8f3;color:#245b44;font:13px system-ui;cursor:pointer';button.title='通过TexoPub登录，按作品权限连接数据';document.body.append(button);
+(()=>{'use strict';const frame=document.getElementById('texopub-work'),config={{DATA_CONFIG}};if(!config)return;
+let popup,port,connected=false,connectIds=[],pending=new Map(),running=0;
+const button=document.createElement('button'),login=document.createElement('a');
+button.textContent='连接访客数据';button.type='button';button.hidden=true;login.hidden=true;
+login.textContent='登录后使用云端数据';login.href=config.login_url;
+for(const el of [button,login]){el.style='position:fixed;right:12px;bottom:14px;z-index:6;padding:9px 14px;border:1px solid #ccd8ce;border-radius:20px;background:#faf8f3;color:#245b44;font:13px system-ui;cursor:pointer';document.body.append(el);}
 function reply(id,result,error){frame.contentWindow.postMessage({type:'texopub:data-response',id,result,error},'*');}
-function reset(){port?.close();port=null;connected=false;button.textContent='连接数据';for(const [id] of pending)reply(id,null,{code:'disconnected',message:'连接已断开，请重新连接'});pending.clear();}
-button.onclick=()=>{if(connected){popup?.focus();return;}popup=window.open(config.api+'/connect?ticket='+encodeURIComponent(config.ticket),'texopub-data-'+Math.random().toString(36).slice(2),'width=640,height=720');if(!popup){button.textContent='请允许弹出连接窗口';}};
+function reset(){port?.close();port=null;connected=false;for(const [id] of pending)reply(id,null,{code:'disconnected',message:'访客连接已断开，请重新连接'});pending.clear();}
+function authError(status,error){if(status===401){login.hidden=false;button.hidden=true;return {code:'login_required',state:'login_required',message:'请登录TexoPub后继续，登录完成会返回此作品',login_url:config.login_url};}return {...error,state:'forbidden'};}
+async function request(path,body,credentials='omit'){
+ const r=await fetch(config.api+path,{method:'POST',credentials,headers:{'Content-Type':'application/json',...(credentials==='include'?{'X-TexoPub-Request':'work'}:{})},body:JSON.stringify({ticket:config.ticket,...body})});
+ const value=await r.json();return {status:r.status,ok:r.ok,value};
+}
+button.onclick=()=>{if(connected){popup?.focus();return;}popup=window.open(config.api+'/connect?ticket='+encodeURIComponent(config.ticket),'texopub-data-'+Math.random().toString(36).slice(2),'width=640,height=720');if(!popup)button.textContent='请允许弹出访客连接窗口';};
 addEventListener('message',async e=>{const m=e.data;if(!m)return;
- if(e.source===popup&&e.origin===config.app_origin&&m.type==='texopub:data-ready'&&m.ticket===config.ticket){const ch=new MessageChannel();port=ch.port1;port.onmessage=ev=>{const v=ev.data;if(v?.type==='connected'){connected=true;button.textContent='数据已连接';for(const id of connectIds)reply(id,{connected:true});connectIds=[];return;}if(pending.has(v?.id)){pending.delete(v.id);reply(v.id,v.result,v.error);if(['grant_expired','viewer_expired','viewer_stale'].includes(v.error?.code)){reset();try{popup?.close();}catch{}popup=null;button.textContent='重新连接数据';}}};port.start();popup.postMessage({type:'texopub:data-port',ticket:config.ticket},config.app_origin,[ch.port2]);return;}
+ if(e.source===popup&&e.origin===config.app_origin&&m.type==='texopub:data-ready'&&m.ticket===config.ticket){
+  const ch=new MessageChannel();port=ch.port1;port.onmessage=ev=>{const v=ev.data;
+   if(v?.type==='connected'){connected=true;button.textContent='访客数据已连接';for(const id of connectIds)reply(id,{connected:true,state:'ready',role:'visitor'});connectIds=[];return;}
+   if(pending.has(v?.id)){pending.delete(v.id);reply(v.id,v.result,v.error);if(['grant_expired','viewer_expired','viewer_stale'].includes(v.error?.code)){reset();try{popup?.close();}catch{}popup=null;button.textContent='重新连接访客数据';}}
+  };port.start();popup.postMessage({type:'texopub:data-port',ticket:config.ticket},config.app_origin,[ch.port2]);return;
+ }
  if(e.source!==frame.contentWindow||m.type!=='texopub:data-request'||typeof m.id!=='string'||m.id.length>100)return;
- if(m.operation==='connect'){if(connected)reply(m.id,{connected:true});else{connectIds.push(m.id);if(connectIds.length>3)reply(connectIds.shift(),null,{code:'connect_required',message:'请点击标题栏外的连接数据按钮'});button.textContent='点击连接数据';button.focus();}return;}
  if(m.operation==='disconnect'){try{popup?.close();}catch{}reset();reply(m.id,{disconnected:true});return;}
- if(!['query','get','create','update','remove','history','restore','clear_history'].includes(m.operation)||typeof m.collection!=='string'){reply(m.id,null,{code:'invalid_operation',message:'不支持的数据操作'});return;}
+ if(!['connect','query','get','create','update','remove','history','restore','clear_history'].includes(m.operation)||(m.operation!=='connect'&&typeof m.collection!=='string')){reply(m.id,null,{code:'invalid_operation',message:'不支持的数据操作'});return;}
  if(JSON.stringify(m).length>131072||running>=3||pending.size>=3){reply(m.id,null,{code:'busy',message:'请求过大或正在处理其他请求'});return;}
- if(connected&&port&&popup&&!popup.closed){pending.set(m.id,Date.now());port.postMessage({id:m.id,operation:m.operation,collection:m.collection,args:m.args});return;}
- running++;try{const r=await fetch(config.api+'/runtime/call',{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({ticket:config.ticket,operation:m.operation,collection:m.collection,args:m.args||{}})}),result=await r.json();if(!r.ok)reply(m.id,null,result.error);else reply(m.id,result);}catch{reply(m.id,null,{code:'request_failed',message:'数据请求失败，请稍后重试'});}finally{running--;}
- });frame.addEventListener('load',()=>{reset();connectIds=[];});setInterval(()=>{if(connected&&(!popup||popup.closed))reset();for(const [id,time] of pending)if(Date.now()-time>30000){pending.delete(id);reply(id,null,{code:'timeout',message:'数据请求超时，请重试'});}},1000);
+ if(connected&&port&&popup&&!popup.closed){if(m.operation==='connect')reply(m.id,{connected:true,state:'ready',role:'visitor'});else{pending.set(m.id,Date.now());port.postMessage({id:m.id,operation:m.operation,collection:m.collection,args:m.args});}return;}
+ running++;
+ try{
+  // Only this trusted outer document sends the host-only login cookie. The child
+  // supplies operations and collection names, never identity, tickets or credentials.
+  const body={operation:m.operation,collection:m.collection,args:m.args||{}},author=await request('/runtime/author',body,'include');
+  if(author.ok){login.hidden=true;button.hidden=true;reply(m.id,author.value);return;}
+  if(![401,403].includes(author.status)){reply(m.id,null,author.value.error);return;}
+  const error=authError(author.status,author.value.error);
+  if(m.operation!=='connect'){
+   const anon=await request('/runtime/call',body);
+   if(anon.ok){login.hidden=true;reply(m.id,anon.value);return;}
+   if(anon.value.error?.code!=='connect_required'){reply(m.id,null,anon.value.error);return;}
+  }
+  // Explicit visitor grants remain available for user_private collections. Owner
+  // access never waits for this window and never falls back to anonymous writes.
+  if(author.status===403){const info=await request('/runtime/info',{});if(info.ok&&Object.values(info.value.collections).some(c=>c.mode==='user_private')){
+   button.hidden=false;login.hidden=true;
+   if(m.operation==='connect'){connectIds.push(m.id);if(connectIds.length>3)reply(connectIds.shift(),null,{code:'connect_required',message:'请连接访客数据'});button.focus();return;}
+  }}
+  reply(m.id,null,error);
+ }catch{reply(m.id,null,{code:'request_failed',message:'数据请求失败，请稍后重试'});}finally{running--;}
+});
+frame.addEventListener('load',()=>{reset();connectIds=[];login.hidden=true;button.hidden=true;});
+setInterval(()=>{if(connected&&(!popup||popup.closed))reset();for(const [id,time] of pending)if(Date.now()-time>30000){pending.delete(id);reply(id,null,{code:'timeout',message:'数据请求超时，请重试'});}},1000);
 })();
 </script>

@@ -2,7 +2,7 @@
 export class DataError extends Error {
   constructor(status,code,message,extra={}){super(message);this.status=status;this.code=code;this.extra=extra;}
 }
-export const DATA_LIMITS=Object.freeze({account_bytes:50*1024*1024,app_bytes:25*1024*1024,record_bytes:65536,request_bytes:131072,response_bytes:262144,records:20000,apps:3,collections:10,fields:32,indexes:3,read_requests:2000,write_requests:200,read_row_budget:50000,write_row_budget:5000,global_requests:8000,global_reads:1000000,global_writes:30000});
+export const DATA_LIMITS=Object.freeze({account_bytes:50*1024*1024,app_bytes:25*1024*1024,record_bytes:65536,request_bytes:131072,response_bytes:262144,records:20000,apps:3,collections:10,fields:32,indexes:3,read_requests:2000,write_requests:500,read_row_budget:300000,write_row_budget:30000,global_requests:8000,global_reads:1000000,global_writes:30000});
 const E=new TextEncoder();
 export const at=()=>Math.floor(Date.now()/1000);
 export const uid=()=>crypto.randomUUID().replaceAll('-','');
@@ -76,7 +76,7 @@ export async function budget(e,pid,write=false,weight=64){
   const aid=uid();
   try{await e.DATA_DB.batch([
     dstmt(e,q,pid,day,read,writes,weight,wr),dstmt(e,q,'*',day,read,writes,weight,wr),
-    dstmt(e,`INSERT INTO data_assertions(id,ok) SELECT ?,CASE WHEN EXISTS(SELECT 1 FROM data_usage WHERE subject=? AND day=? AND reads<=2000 AND writes<=200 AND read_rows<=50000 AND write_rows<=5000) AND EXISTS(SELECT 1 FROM data_usage WHERE subject='*' AND day=? AND requests<=8000 AND read_rows<=1000000 AND write_rows<=30000) THEN 1 ELSE 0 END`,aid,pid,day,day),
+    dstmt(e,`INSERT INTO data_assertions(id,ok) SELECT ?,CASE WHEN EXISTS(SELECT 1 FROM data_usage WHERE subject=? AND day=? AND reads<=? AND writes<=? AND read_rows<=? AND write_rows<=?) AND EXISTS(SELECT 1 FROM data_usage WHERE subject='*' AND day=? AND requests<=? AND read_rows<=? AND write_rows<=?) THEN 1 ELSE 0 END`,aid,pid,day,DATA_LIMITS.read_requests,DATA_LIMITS.write_requests,DATA_LIMITS.read_row_budget,DATA_LIMITS.write_row_budget,day,DATA_LIMITS.global_requests,DATA_LIMITS.global_reads,DATA_LIMITS.global_writes),
     dstmt(e,'DELETE FROM data_assertions WHERE id=?',aid)
   ]);}catch(err){if(/CHECK constraint/.test(err.message))bad(429,'data_daily_quota','达到数据日额度，请在重置后重试',{reset_at});throw err;}
 }

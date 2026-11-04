@@ -2,7 +2,7 @@ import {deleteAppData} from './data-lifecycle.mjs';
 import consoleTemplate from '../templates/data-console.html';
 import connectTemplate from '../templates/data-connect.html';
 import dataSDK from '../templates/data-sdk.html';
-import {browserAccount} from './accounts.mjs';
+import {browserAccount,workAuthorAccount} from './accounts.mjs';
 import {withWorkOperation} from './lifecycle.mjs';
 import {DataError,DATA_LIMITS,at,uid,bytes,dstmt as S,done as one,dall as all,bad,object,identifier,collectionKey,revision,digest,boundedJSON,definition,compatible,validate,assetRefs,view,account,budget,batch,assertChanged} from './data-core.mjs';
 export {DataError};
@@ -110,10 +110,10 @@ async function perform(e,a,c,actor,op,b){
  });
 }
 // The viewer ticket is public context, never an account credential. Runtime calls still
-// require a live, session-bound grant for every non-public operation.
+// require a live author login, or an explicit session-bound visitor grant.
 async function sign(e,payload){if(!e.DATA_BRIDGE_SECRET)bad(503,'data_unconfigured','数据连接尚未配置');const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(e.DATA_BRIDGE_SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']);return [...new Uint8Array(await crypto.subtle.sign('HMAC',k,new TextEncoder().encode(payload)))].map(x=>x.toString(16).padStart(2,'0')).join('');}
-export async function viewerData(e,w,version,viewerOrigin){const b=JSON.parse(w.version_metadata||w.metadata).data_binding;if(!b||!e.DATA_BRIDGE_SECRET)return null;const payload=cursorEncode({app_id:b.app_id,work_id:w.work_id||w.id,version,revision:b.revision,config_hash:b.config_hash,origin:viewerOrigin,nonce:uid(),expires:at()+3600});return {ticket:payload+'.'+await sign(e,payload),api:APP(e)+'/api/v1/data',app_origin:APP(e)};}
-async function ticket(e,raw){if(typeof raw!=='string'||raw.length>4096)bad(401,'invalid_viewer','无效网页连接');const [p,s,...tail]=raw.split('.');if(tail.length||!s||s.length!==64||s!==await sign(e,p))bad(401,'invalid_viewer','网页连接签名无效');const t=cursorDecode(p);if(t.expires<at())bad(401,'viewer_expired','网页连接已过期，请刷新网页');
+export async function viewerData(e,w,version,viewerOrigin){const b=JSON.parse(w.version_metadata||w.metadata).data_binding;if(!b||!e.DATA_BRIDGE_SECRET)return null;const payload=cursorEncode({app_id:b.app_id,work_id:w.work_id||w.id,version,revision:b.revision,config_hash:b.config_hash,origin:viewerOrigin,nonce:uid(),expires:at()+3600});return {ticket:payload+'.'+await sign(e,payload),api:APP(e)+'/api/v1/data',app_origin:APP(e),login_url:APP(e)+'/login/?next='+encodeURIComponent('/api/v1/data/return?work_id='+(w.work_id||w.id))};}
+async function ticket(e,raw,author=false){if(typeof raw!=='string'||raw.length>4096)bad(401,'invalid_viewer','无效网页连接');const [p,s,...tail]=raw.split('.');if(tail.length||!s||s.length!==64||s!==await sign(e,p))bad(401,'invalid_viewer','网页连接签名无效');const t=cursorDecode(p);if(!author&&t.expires<at())bad(401,'viewer_expired','网页连接已过期，请刷新网页');
  const a=await one(e,'SELECT * FROM data_apps WHERE id=?',identifier(t.app_id));if(!a)bad(404,'app_not_found','数据应用不存在');enabled(e,a.publisher_id);
  const w=await main(e,"SELECT w.*,p.revoked FROM works w JOIN publishers p ON p.id=w.publisher_id WHERE w.id=? AND w.status='published' AND w.deleted_at IS NULL",t.work_id);const binding=w&&JSON.parse(w.metadata).data_binding;
  if(!w||w.revoked||a.state!=='active'||w.current_version!==t.version||a.work_id!==w.id||a.revision!==t.revision||binding?.app_id!==a.id||binding?.config_hash!==t.config_hash||binding?.revision!==a.revision||await digest(JSON.parse(a.active_config))!==t.config_hash)bad(409,'viewer_stale','作品已更新、暂停或下架，请刷新网页');return {t,a,w};}
@@ -123,9 +123,24 @@ export async function dataRoutes(r,e,u,p=null){
  if(u.pathname==='/v1/data/sdk.js')return new Response(dataSDK,{headers:{'Content-Type':'application/javascript;charset=utf-8','Access-Control-Allow-Origin':'*','Cache-Control':'public,max-age=300'}});
  if(u.pathname==='/v1/data/console')return new Response(consoleTemplate,{headers:{'Content-Type':'text/html;charset=utf-8','Cache-Control':'no-store','Referrer-Policy':'no-referrer','Content-Security-Policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"}});
  if(u.pathname==='/v1/data/connect'){return new Response(connectTemplate,{headers:{'Content-Type':'text/html;charset=utf-8','Cache-Control':'no-store','Referrer-Policy':'no-referrer','Cross-Origin-Opener-Policy':'unsafe-none','Content-Security-Policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"}});}
+ if(u.pathname==='/v1/data/return'&&r.method==='GET'){
+  const w=await main(e,"SELECT w.* FROM works w JOIN publishers p ON p.id=w.publisher_id WHERE w.id=? AND w.status='published' AND w.deleted_at IS NULL AND p.revoked=0",identifier(u.searchParams.get('work_id')));
+  if(!w)bad(404,'work_not_found','作品已下架或不存在');
+  return Response.redirect(e.CONTENT_ORIGIN.replace(/\/$/,'')+'/p/'+(w.public_slug||w.publisher_id+'/'+w.slug)+'/',302);
+ }
  if(u.pathname==='/v1/data/capabilities')return dataJSON({version:'1',pilot:true,limits:DATA_LIMITS,scopes:['read','write','manage'].map(scope),modes:['owner','public_read','user_private'],file_storage_separate:true,query:'declared-index-equality; id-order; cursor',history:{revisions:5,days:7}});
  if(!e.DATA_DB)bad(503,'data_unconfigured','数据服务尚未配置');
  const path=u.pathname.slice('/v1/data'.length),b=['GET','HEAD'].includes(r.method)?{}:await boundedJSON(r);
+ if(path==='/runtime/author'&&r.method==='POST'){
+  const user=await workAuthorAccount(r,e),{t,a}=await ticket(e,b.ticket,true);
+  if(r.headers.get('Origin')!==t.origin)bad(403,'forbidden','作品来源不匹配');
+  if(user.publisher_id!==a.publisher_id)bad(403,'forbidden','仅作者可使用此作品的云端数据');
+  // A signed ticket identifies public work context; it is never sufficient authority.
+  // Author login and current published binding are checked anew on every call.
+  if(b.operation==='connect')return dataJSON({connected:true,state:'ready',role:'author'});
+  const c=await collection(e,a,collectionKey(b.collection));
+  return dataJSON(await perform(e,a,c,{pid:user.publisher_id,account_id:user.id},b.operation,b.args||{}));
+ }
  if(path.startsWith('/runtime/')){
   const {t,a,w}=await ticket(e,b.ticket),c=await collection(e,a,collectionKey(b.collection||Object.keys(JSON.parse(a.active_config).collections)[0]));
   if(path==='/runtime/info')return dataJSON({title:JSON.parse(w.metadata).title,author:JSON.parse(w.metadata).author,app_id:a.id,viewer_origin:t.origin,collections:Object.fromEntries(Object.entries(JSON.parse(a.active_config).collections).map(([k,v])=>[k,{mode:v.mode,history:v.history}])),notice:'作者及其获授权AI可管理本作品全部数据。user_private仅隔离其他访客，不对作者隐藏。'});
@@ -184,3 +199,17 @@ async function deleteCollection(e,a,key,b){return withWorkOperation(e,a.work_id,
  if(await one(e,'SELECT id FROM data_records WHERE app_id=? AND collection=? LIMIT 1',a.id,key)||await one(e,'SELECT record_id FROM data_pin_jobs WHERE app_id=? AND collection=? LIMIT 1',a.id,key))return {deleting:true,collection:key};
  await batch(e,[S(e,'DELETE FROM data_idempotency WHERE app_id=? AND collection=?',a.id,key),S(e,'DELETE FROM data_collections WHERE app_id=? AND key=?',a.id,key)]);return {deleted:true,collection:key,publish_required:true,note:'请更新集合配置并随网页新版本发布，以移除已删除集合的声明。'};
  });}
+
+// Credentialed CORS is limited to this endpoint and exact platform-owned origins.
+// The sandboxed work has Origin:null and never receives the session cookie or a grant.
+export function authorRuntimeCors(r,e,response){
+ if(new URL(r.url).pathname.replace(/^\/api(?=\/)/,'')!=='/v1/data/runtime/author')return response;
+ const headers=new Headers(response.headers),from=r.headers.get('Origin');
+ headers.delete('Access-Control-Allow-Origin');headers.delete('Access-Control-Allow-Credentials');
+ headers.set('Vary','Origin');headers.set('Cache-Control','no-store');
+ if([APP(e),e.CONTENT_ORIGIN?.replace(/\/$/,'')].includes(from)){
+  headers.set('Access-Control-Allow-Origin',from);headers.set('Access-Control-Allow-Credentials','true');
+  headers.set('Access-Control-Allow-Methods','POST');headers.set('Access-Control-Allow-Headers','Content-Type, X-TexoPub-Request');
+ }
+ return new Response(response.body,{status:response.status,headers});
+}

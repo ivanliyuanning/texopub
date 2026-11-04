@@ -1,6 +1,6 @@
 import {applicationRoutes,deliverApplicationMail} from './applications.mjs';
 import dataViewerTemplate from '../templates/data-viewer.html';
-import {dataRoutes,DataError,dataJSON,prepareDataBinding,activateDataBinding,viewerData,dataMaintenance} from './data.mjs';
+import {authorRuntimeCors,dataRoutes,DataError,dataJSON,prepareDataBinding,activateDataBinding,viewerData,dataMaintenance} from './data.mjs';
 import {resourceReferences,listAlbums,getAlbum,saveAlbum,deleteAlbum,albumCover} from './albums.mjs';
 import {CommunityError,getProfile,updateProfile,upsertPartner,prepareContributors,enrichWorks,publicProfile,avatarSvg} from './community.mjs';
 import {oauthRoutes} from './mcp-oauth.mjs';
@@ -87,7 +87,7 @@ async function createUpload(request,env,p){
  if(kind==='asset'){metadata.entry=body.entry||files[0].path;if(!seen.has(metadata.entry))fail(400,'素材入口必须在文件清单中');if(body.dependencies!==undefined)fail(400,'素材不能再声明网页依赖');}
  let work=await first(env,'SELECT * FROM works WHERE publisher_id=? AND slug=?',p.id,slug);
  if(body.work_id&&(!work||work.id!==body.work_id))fail(403,'只能更新自己的作品');
- if(work){if(!body.work_id)fail(409,'同slug已存在；更新时提供work_id和expected_version');if(work.deleted_at||work.kind!==kind||work.status==='hidden'||(JSON.parse(work.metadata).source||'hosted')!==source)fail(403,'作品类型不同或已下架；不能把托管作品改成外部收录');if((body.expected_version||null)!==work.current_version)fail(409,'作品版本已变化，请读取最新版本后更新');}
+ if(work){if(!body.work_id)fail(409,'同slug已存在；更新时提供work_id和expected_version');if(work.deleted_at||work.kind!==kind||work.status==='hidden'||(JSON.parse(work.metadata).source||'hosted')!==source)fail(403,'作品类型不同或已下架；不能把托管作品改成外部收录');if(!Object.hasOwn(body,'expected_version')||body.expected_version!==work.current_version)fail(409,'作品版本已变化，请读取最新版本后更新');}
  // Legacy aliases are trusted migration metadata and cannot be supplied by clients.
  if(work){const previous=JSON.parse(work.metadata);for(const k of ['legacy_id','legacy_initial_version'])if(previous[k])metadata[k]=previous[k];}
  if(kind==='work'&&source==='hosted'){const binding=await prepareDataBinding(env,p,work,body.data_binding);if(binding)metadata.data_binding=binding;}
@@ -340,4 +340,4 @@ async function route(request,env,authenticatedPublisher=null,ctx=null){
  fail(404,'接口不存在');
 }
 async function safeRoute(request,env,p=null,ctx=null){try{return await route(request,env,p,ctx);}catch(error){if(error instanceof AccountError&&new URL(request.url).pathname.includes('/v1/data'))return dataJSON({error:{code:error.status===401?'account_authentication':'request_denied',message:error.message}},error.status);if(error instanceof DataError)return dataJSON({error:{code:error.code,message:error.message,...error.extra}},error.status);if(/resource_in_use/.test(error.message))return response({error:'素材仍被网页版本、专辑封面、数据记录或历史引用，请先处理引用；未归档或删除素材'},409);if(/resource_unavailable|album_member_unavailable/.test(error.message))return response({error:'引用的资源或网页不存在、未发布或不属于当前空间'},409);if(error instanceof Failure||error instanceof AccountError||error instanceof CommunityError)return response({error:error.message},error.status);return response({error:'服务暂时不可用，请保留上传会话并重试'},503);}}
-export default {fetch(request,env,ctx){return safeRoute(request,env,null,ctx);},scheduled(event,env,ctx){if(env.ROLE==='api')ctx.waitUntil(event.cron==='*/5 * * * *'?deliverApplicationMail(env):dataMaintenance(env));}};
+export default {async fetch(request,env,ctx){return authorRuntimeCors(request,env,await safeRoute(request,env,null,ctx));},scheduled(event,env,ctx){if(env.ROLE==='api')ctx.waitUntil(event.cron==='*/5 * * * *'?deliverApplicationMail(env):dataMaintenance(env));}};
